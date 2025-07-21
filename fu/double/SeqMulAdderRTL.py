@@ -12,7 +12,7 @@ from pymtl3 import *
 from ..basic.TwoSeqCombo import TwoSeqCombo
 from ..single.MulRTL import MulRTL
 from ..single.AdderRTL import AdderRTL
-from ...lib.opt_type import *
+from lib.opt_type import *
 
 class SeqMulAdderRTL(TwoSeqCombo):
 

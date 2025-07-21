@@ -10,13 +10,13 @@ Author : Cheng Tan
 """
 
 from pymtl3 import *
-from ...fu.single.MemUnitRTL import MemUnitRTL
-from ...fu.single.AdderRTL  import AdderRTL
-from ...fu.single.NahRTL  import NahRTL
-from ...lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ...lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ...lib.opt_type import *
-from ...lib.util.common import *
+from fu.single.MemUnitRTL import MemUnitRTL
+from fu.single.AdderRTL  import AdderRTL
+from fu.single.NahRTL  import NahRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.opt_type import *
+from lib.util.common import *
 
 
 class FlexibleFuRTL(Component):

@@ -9,9 +9,9 @@ Author : Cheng Tan
 '''
 
 from pymtl3 import *
-from ..lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ..lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ..lib.basic.val_rdy.queues import NormalQueueRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.basic.val_rdy.queues import NormalQueueRTL
 
 class RegisterRTL(Component):
 

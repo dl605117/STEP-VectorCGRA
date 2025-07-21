@@ -28,11 +28,11 @@ Author : Cheng Tan
 
 from pymtl3.stdlib.primitive import RegisterFile
 
-from ...lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ...lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ...lib.basic.val_rdy.queues import BypassQueueRTL
-from ...lib.messages import *
-from ...noc.PyOCN.pymtl3_net.xbar.XbarBypassQueueRTL import XbarBypassQueueRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.basic.val_rdy.queues import BypassQueueRTL
+from lib.messages import *
+from noc.PyOCN.pymtl3_net.xbar.XbarBypassQueueRTL import XbarBypassQueueRTL
 
 
 class DataMemWithCrossbarRTL(Component):

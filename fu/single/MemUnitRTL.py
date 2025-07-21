@@ -10,8 +10,8 @@ Author : Cheng Tan
 
 from pymtl3 import *
 from ..basic.Fu import Fu
-from ...lib.basic.val_rdy.ifcs import ValRdySendIfcRTL, ValRdyRecvIfcRTL
-from ...lib.opt_type import *
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL, ValRdyRecvIfcRTL
+from lib.opt_type import *
 
 class MemUnitRTL(Component):
 

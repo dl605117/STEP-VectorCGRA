@@ -11,11 +11,11 @@ Author : Cheng Tan
 from pymtl3 import *
 from pymtl3.stdlib.primitive import RegisterFile
 from .CtrlMemDynamicRTL import CtrlMemDynamicRTL
-from ...lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ...lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ...lib.opt_type import *
-from ...noc.PyOCN.pymtl3_net.ocnlib.ifcs.positions import mk_ring_pos
-from ...noc.PyOCN.pymtl3_net.ringnet.RingNetworkRTL import RingNetworkRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.opt_type import *
+from noc.PyOCN.pymtl3_net.ocnlib.ifcs.positions import mk_ring_pos
+from noc.PyOCN.pymtl3_net.ringnet.RingNetworkRTL import RingNetworkRTL
 
 class RingMultiCtrlMemDynamicRTL(Component):
   def construct(s, CtrlPktType, CgraPayloadType, CtrlSignalType,

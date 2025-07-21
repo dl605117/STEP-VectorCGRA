@@ -9,14 +9,14 @@ Author : Cheng Tan
   Date : Dec 2, 2024
 """
 
-from ..lib.basic.val_rdy.ifcs import RecvIfcRTL
-from ..lib.basic.val_rdy.ifcs import SendIfcRTL
-from ..lib.basic.val_rdy.queues import NormalQueueRTL
-from ..lib.messages import *
-from ..lib.opt_type import *
-from ..lib.util.common import *
-from ..noc.PyOCN.pymtl3_net.channel.ChannelRTL import ChannelRTL
-from ..noc.PyOCN.pymtl3_net.xbar.XbarBypassQueueRTL import XbarBypassQueueRTL
+from lib.basic.val_rdy.ifcs import RecvIfcRTL
+from lib.basic.val_rdy.ifcs import SendIfcRTL
+from lib.basic.val_rdy.queues import NormalQueueRTL
+from lib.messages import *
+from lib.opt_type import *
+from lib.util.common import *
+from noc.PyOCN.pymtl3_net.channel.ChannelRTL import ChannelRTL
+from noc.PyOCN.pymtl3_net.xbar.XbarBypassQueueRTL import XbarBypassQueueRTL
 
 class ControllerRTL(Component):
 

@@ -6,16 +6,16 @@ CgraRTL.py
 Author : Cheng Tan
   Date : Dec 22, 2024
 """
-from ..controller.ControllerRTL import ControllerRTL
-from ..lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ..lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ..lib.basic.val_rdy.queues import BypassQueueRTL
-from ..lib.opt_type import *
-from ..lib.util.common import *
-from ..mem.data.DataMemWithCrossbarRTL import DataMemWithCrossbarRTL
-from ..noc.PyOCN.pymtl3_net.ocnlib.ifcs.positions import mk_ring_pos
-from ..noc.PyOCN.pymtl3_net.ringnet.RingNetworkRTL import RingNetworkRTL
-from ..tile.TileRTL import TileRTL
+from controller.ControllerRTL import ControllerRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.basic.val_rdy.queues import BypassQueueRTL
+from lib.opt_type import *
+from lib.util.common import *
+from mem.data.DataMemWithCrossbarRTL import DataMemWithCrossbarRTL
+from noc.PyOCN.pymtl3_net.ocnlib.ifcs.positions import mk_ring_pos
+from noc.PyOCN.pymtl3_net.ringnet.RingNetworkRTL import RingNetworkRTL
+from tile.TileRTL import TileRTL
 
 
 class CgraRTL(Component):

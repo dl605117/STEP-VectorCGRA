@@ -19,7 +19,7 @@ Author : Yanghui Ou
 from pymtl3 import *
 from ..basic.Fu import Fu
 from ..pymtl3_hardfloat.HardFloat.AddFNRTL import AddFN
-from ...lib.opt_type import *
+from lib.opt_type import *
 
 class FpAddRTL(Fu):
 

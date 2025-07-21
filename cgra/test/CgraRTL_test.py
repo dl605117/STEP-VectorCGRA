@@ -14,26 +14,26 @@ from pymtl3.stdlib.test_utils import (run_sim,
                                       config_model_with_cmdline_opts)
 
 from ..CgraRTL import CgraRTL
-from ...fu.double.SeqMulAdderRTL import SeqMulAdderRTL
-from ...fu.flexible.FlexibleFuRTL import FlexibleFuRTL
-from ...fu.float.FpAddRTL import FpAddRTL
-from ...fu.float.FpMulRTL import FpMulRTL
-from ...fu.single.AdderRTL import AdderRTL
-from ...fu.single.BranchRTL import BranchRTL
-from ...fu.single.CompRTL import CompRTL
-from ...fu.single.LogicRTL import LogicRTL
-from ...fu.single.MemUnitRTL import MemUnitRTL
-from ...fu.single.MulRTL import MulRTL
-from ...fu.single.PhiRTL import PhiRTL
-from ...fu.single.RetRTL import RetRTL
-from ...fu.single.SelRTL import SelRTL
-from ...fu.single.ShifterRTL import ShifterRTL
-from ...fu.vector.VectorAdderComboRTL import VectorAdderComboRTL
-from ...fu.vector.VectorMulComboRTL import VectorMulComboRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
+from fu.double.SeqMulAdderRTL import SeqMulAdderRTL
+from fu.flexible.FlexibleFuRTL import FlexibleFuRTL
+from fu.float.FpAddRTL import FpAddRTL
+from fu.float.FpMulRTL import FpMulRTL
+from fu.single.AdderRTL import AdderRTL
+from fu.single.BranchRTL import BranchRTL
+from fu.single.CompRTL import CompRTL
+from fu.single.LogicRTL import LogicRTL
+from fu.single.MemUnitRTL import MemUnitRTL
+from fu.single.MulRTL import MulRTL
+from fu.single.PhiRTL import PhiRTL
+from fu.single.RetRTL import RetRTL
+from fu.single.SelRTL import SelRTL
+from fu.single.ShifterRTL import ShifterRTL
+from fu.vector.VectorAdderComboRTL import VectorAdderComboRTL
+from fu.vector.VectorMulComboRTL import VectorMulComboRTL
+from lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from lib.messages import *
+from lib.opt_type import *
 
 
 #-------------------------------------------------------------------------

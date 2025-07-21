@@ -14,24 +14,24 @@ Author : Cheng Tan
   Date : Nov 26, 2024
 """
 
-from ..fu.flexible.FlexibleFuRTL import FlexibleFuRTL
-from ..fu.single.AdderRTL import AdderRTL
-from ..fu.single.BranchRTL import BranchRTL
-from ..fu.single.CompRTL import CompRTL
-from ..fu.single.MemUnitRTL import MemUnitRTL
-from ..fu.single.MulRTL import MulRTL
-from ..fu.single.PhiRTL import PhiRTL
-from ..lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ..lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ..lib.cmd_type import *
-from ..lib.util.common import *
-from ..mem.const.ConstQueueDynamicRTL import ConstQueueDynamicRTL
-from ..mem.ctrl.CtrlMemDynamicRTL import CtrlMemDynamicRTL
-from ..mem.register_cluster.RegisterClusterRTL import RegisterClusterRTL
-from ..noc.CrossbarRTL import CrossbarRTL
-from ..noc.LinkOrRTL import LinkOrRTL
-from ..noc.PyOCN.pymtl3_net.channel.ChannelRTL import ChannelRTL
-from ..rf.RegisterRTL import RegisterRTL
+from fu.flexible.FlexibleFuRTL import FlexibleFuRTL
+from fu.single.AdderRTL import AdderRTL
+from fu.single.BranchRTL import BranchRTL
+from fu.single.CompRTL import CompRTL
+from fu.single.MemUnitRTL import MemUnitRTL
+from fu.single.MulRTL import MulRTL
+from fu.single.PhiRTL import PhiRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.cmd_type import *
+from lib.util.common import *
+from mem.const.ConstQueueDynamicRTL import ConstQueueDynamicRTL
+from mem.ctrl.CtrlMemDynamicRTL import CtrlMemDynamicRTL
+from mem.register_cluster.RegisterClusterRTL import RegisterClusterRTL
+from noc.CrossbarRTL import CrossbarRTL
+from noc.LinkOrRTL import LinkOrRTL
+from noc.PyOCN.pymtl3_net.channel.ChannelRTL import ChannelRTL
+from rf.RegisterRTL import RegisterRTL
 
 
 class TileRTL(Component):

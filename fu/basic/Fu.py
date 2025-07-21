@@ -10,9 +10,9 @@ Author : Cheng Tan
 """
 
 from pymtl3 import *
-from ...lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ...lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ...lib.opt_type import *
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.opt_type import *
 
 class Fu(Component):
 

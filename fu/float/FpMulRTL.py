@@ -19,7 +19,7 @@ Author : Cheng Tan
 from pymtl3 import *
 from ..basic.Fu import Fu
 from ..pymtl3_hardfloat.HardFloat.MulFNRTL import MulFN
-from ...lib.opt_type import *
+from lib.opt_type import *
 
 class FpMulRTL(Fu):
 
