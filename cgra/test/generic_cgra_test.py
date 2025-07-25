@@ -250,9 +250,10 @@ def test_run_generic(cmdline_opts):
     )
     print(ctrl_pkt)
     
+    src_tile = 0
     # Corrected code
     config_pkt = IntraCgraPktType(
-        tile_x, tile_y,
+        src_tile, tile_id,
         payload = CgraPayloadType(
             cmd=CMD_CONFIG,
             data_addr=cycle,
@@ -270,11 +271,11 @@ def test_run_generic(cmdline_opts):
       tile_y = tile_id // x_tiles
       
       # Insert config count packets at the beginning
-      pkts.insert(0, IntraCgraPktType(tile_x, tile_y, payload=CgraPayloadType(CMD_CONFIG_TOTAL_CTRL_COUNT, data=DataType(total_ctrl_steps, 1))))
-      pkts.insert(0, IntraCgraPktType(tile_x, tile_y, payload=CgraPayloadType(CMD_CONFIG_COUNT_PER_ITER, data=DataType(ctrl_count_per_iter, 1))))
+      pkts.insert(0, IntraCgraPktType(src_tile, tile_id, payload=CgraPayloadType(CMD_CONFIG_TOTAL_CTRL_COUNT, data=DataType(total_ctrl_steps, 1))))
+      pkts.insert(0, IntraCgraPktType(src_tile, tile_id, payload=CgraPayloadType(CMD_CONFIG_COUNT_PER_ITER, data=DataType(ctrl_count_per_iter, 1))))
       
       # Add launch command at the end
-      pkts.append(IntraCgraPktType(tile_x, tile_y, payload=CgraPayloadType(CMD_LAUNCH)))
+      pkts.append(IntraCgraPktType(src_tile, tile_id, payload=CgraPayloadType(CMD_LAUNCH)))
 
   # Flatten the map into a single list of packets
   src_opt_pkt = []
