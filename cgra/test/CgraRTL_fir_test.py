@@ -51,6 +51,15 @@ class TestHarness(Component):
     DataAddrType = mk_bits(clog2(data_mem_size_global))
     s.num_tiles = width * height
     s.src_ctrl_pkt = TestSrcRTL(CtrlPktType, src_ctrl_pkt)
+    print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    print("#######################################################")
+    print("\n--- src_ctrl_pkt info ---")
+    if hasattr(s.src_ctrl_pkt, 'msgs'): # TestSrcRTL often stores messages in a 'msgs' attribute
+        for i, pkt in enumerate(s.src_ctrl_pkt.msgs):
+            print(f"Packet {i}: {pkt}")
+    else:
+        print("Could not find 'msgs' attribute in src_ctrl_pkt. Inspect TestSrcRTL implementation.")
+    print("-------------------------\n") 
     s.src_query_pkt = TestSrcRTL(CtrlPktType, src_query_pkt)
 
     s.dut = DUT(DataType, PredicateType, CtrlPktType, CgraPayloadType,
