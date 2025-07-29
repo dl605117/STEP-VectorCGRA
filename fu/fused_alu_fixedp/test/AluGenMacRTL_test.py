@@ -11,10 +11,10 @@ from pymtl3 import *
 from pymtl3.stdlib.test_utils import (run_sim,
                                       config_model_with_cmdline_opts)
 from ..AluGenMacRTL import AluGenMacRTL
-from ....lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ....lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ....lib.messages import *
-from ....lib.opt_type import *
+from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from ...lib.messages import *
+from ...lib.opt_type import *
 from ....mem.const.ConstQueueRTL import ConstQueueRTL
 
 def test_elaborate( cmdline_opts ):

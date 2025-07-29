@@ -13,9 +13,9 @@ import pytest
 from pymtl3 import *
 from pymtl3.stdlib.test_utils import TestVectorSimulator
 from ..RegisterRTL import RegisterRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.messages import *
+from ..lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from ..lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from ..lib.messages import *
 
 
 #-------------------------------------------------------------------------

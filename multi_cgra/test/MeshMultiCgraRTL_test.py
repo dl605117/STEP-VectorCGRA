@@ -32,10 +32,10 @@ from ...fu.single.SelRTL import SelRTL
 from ...fu.single.ShifterRTL import ShifterRTL
 from ...fu.vector.VectorAdderComboRTL import VectorAdderComboRTL
 from ...fu.vector.VectorMulComboRTL import VectorMulComboRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
+from ..lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from ..lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from ..lib.messages import *
+from ..lib.opt_type import *
 
 
 #-------------------------------------------------------------------------

@@ -13,8 +13,8 @@ from pymtl3.passes.backends.verilog import VerilogTranslationPass
 from pymtl3.stdlib.test_utils import (run_sim,
                                       config_model_with_cmdline_opts)
 from ..CompRTL import CompRTL
-from ....lib.messages import *
-from ....lib.opt_type import *
+from ...lib.messages import *
+from ...lib.opt_type import *
 
 
 DataType      = mk_data(32, 1)

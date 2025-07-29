@@ -27,11 +27,11 @@ from ...fu.single.PhiRTL import PhiRTL
 from ...fu.single.RetRTL import RetRTL
 from ...fu.single.SelRTL import SelRTL
 from ...fu.single.ShifterRTL import ShifterRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
-from ...lib.util.common import *
+from ..lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from ..lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from ..lib.messages import *
+from ..lib.opt_type import *
+from ..lib.util.common import *
 
 fuType2RTL = {}
 fuType2RTL["Phi"  ] = PhiRTL

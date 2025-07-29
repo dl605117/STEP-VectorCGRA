@@ -9,7 +9,7 @@ Author : Cheng Tan
 """
 
 from pymtl3 import *
-from ...lib.opt_type       import *
+from ..lib.opt_type       import *
 from ..basic.ThreeCombo    import ThreeCombo
 from ..single.MulRTL       import MulRTL
 from ..single.AdderRTL     import AdderRTL

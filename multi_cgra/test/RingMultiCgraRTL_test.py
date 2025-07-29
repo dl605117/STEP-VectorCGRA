@@ -16,11 +16,11 @@ from ..RingMultiCgraRTL import RingMultiCgraRTL
 from ...fu.flexible.FlexibleFuRTL import FlexibleFuRTL
 from ...fu.single.AdderRTL import AdderRTL
 from ...fu.single.MemUnitRTL import MemUnitRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.cmd_type import *
-from ...lib.messages import *
-from ...lib.opt_type import *
+from ..lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from ..lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from ..lib.cmd_type import *
+from ..lib.messages import *
+from ..lib.opt_type import *
 
 #-------------------------------------------------------------------------
 # Test harness

@@ -1,0 +1,2 @@
+export PKG_CONFIG_PATH="/home/jovank/verilator_install/share/pkgconfig:$PKG_CONFIG_PATH"
+export PATH="$PATH:/home/jovank/verilator_install/bin"

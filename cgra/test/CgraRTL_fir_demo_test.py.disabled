@@ -20,11 +20,11 @@ from ...fu.flexible.FlexibleFuRTL import FlexibleFuRTL
 from ...fu.single.AdderRTL import AdderRTL
 from ...fu.single.MemUnitRTL import MemUnitRTL
 from ...fu.single.ShifterRTL import ShifterRTL
-from ...lib.basic.en_rdy.test_srcs import TestSrcRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
-from ...lib.util.dfg_helper import *
-from ...lib.util.ctrl_helper import *
+from ..lib.basic.en_rdy.test_srcs import TestSrcRTL
+from ..lib.messages import *
+from ..lib.opt_type import *
+from ..lib.util.dfg_helper import *
+from ..lib.util.ctrl_helper import *
 import copy
 import os
 

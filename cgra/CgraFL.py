@@ -9,8 +9,8 @@ Author : Cheng Tan
 """
 
 from pymtl3 import *
-from ..lib.opt_type import *
-from ..lib.messages import *
+from .lib.opt_type import *
+from .lib.messages import *
 
 #------------------------------------------------------------------------
 # Assuming that the elements in FuDFG are already ordered well.

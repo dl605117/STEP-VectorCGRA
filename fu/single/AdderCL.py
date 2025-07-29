@@ -10,7 +10,7 @@ Author : Cheng Tan
 
 from pymtl3 import *
 from ..basic.Fu import Fu
-from ...lib.opt_type import *
+from ..lib.opt_type import *
 
 class AdderCL(Fu):
 
