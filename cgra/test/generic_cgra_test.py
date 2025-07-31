@@ -248,7 +248,6 @@ def test_run_generic(cmdline_opts):
         # NOTE: More complex fields like routing_xbar, write_reg_from, etc.
         # would need to be added to the JSON and parsed here if needed.
     )
-    print(ctrl_pkt)
     
     src_tile = 0
     # Corrected code
@@ -256,7 +255,7 @@ def test_run_generic(cmdline_opts):
         src_tile, tile_id,
         payload = CgraPayloadType(
             cmd=CMD_CONFIG,
-            data_addr=cycle,
+            ctrl_addr=cycle,
             ctrl=ctrl_pkt
         )
     )
@@ -267,8 +266,6 @@ def test_run_generic(cmdline_opts):
 
   # Add other necessary packets (launch, config counts, etc.) to each tile
   for tile_id, pkts in src_opt_pkt_map.items():
-      tile_x = tile_id % x_tiles
-      tile_y = tile_id // x_tiles
       
       # Insert config count packets at the beginning
       pkts.insert(0, IntraCgraPktType(src_tile, tile_id, payload=CgraPayloadType(CMD_CONFIG_TOTAL_CTRL_COUNT, data=DataType(total_ctrl_steps, 1))))
