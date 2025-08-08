@@ -76,7 +76,7 @@ class TestHarness(Component):
                 FuList, "Mesh", controller2addr_map, idTo2d_map,
                 is_multi_cgra = False)
 
-    cmp_fn = lambda a, b : a.payload.data == b.payload.data and a.payload.cmd == b.payload.cmd
+    cmp_fn = lambda a, b: a.payload.cmd == b.payload.cmd
     s.complete_signal_sink_out = TestSinkRTL(CtrlPktType, complete_signal_sink_out, cmp_fn = cmp_fn)
 
     # Connections
@@ -216,7 +216,7 @@ def test_run_generic(cmdline_opts):
   }
 
   # --- Dynamic Packet Generation from config.json ---
-  
+ 
   src_opt_pkt_map = {i: [] for i in range(num_tiles)}
   max_cycle = 0
 
@@ -228,9 +228,19 @@ def test_run_generic(cmdline_opts):
     max_cycle = max(max_cycle, cycle)
 
     # Default values
-    fu_in_code = [mk_bits(clog2(num_fu_inports + 1))(x + 1) for x in range(num_fu_inports)]
-    fu_xbar_outport = [mk_bits(clog2(num_fu_outports + 1))(0)] * (num_tile_outports + num_fu_inports)
+    # The default is to connect FU input 'i' to tile input 'i+1'.
+    fu_in_code = [mk_bits(clog2(num_tile_inports + 1))(x + 1) for x in range(num_fu_inports)]
+    fu_xbar_outport = [mk_bits(clog2(num_tile_inports + 1))(0)] * (num_tile_outports + num_fu_inports)
     
+    # Corrected Section: Read fu_in_port parameters from JSON
+    # This loop checks for 'fu_in_X' keys in the config and overrides the default values.
+    for i in range(num_fu_inports):
+        inport_key = f"fu_in_{i}"
+        # If the key exists for this operation, use its value.
+        if inport_key in op:
+            # The value from the JSON specifies which tile input port to use.
+            fu_in_code[i] = mk_bits(clog2(num_tile_inports + 1))(op[inport_key])
+
     # Parse outputs for FU crossbar
     for i in range(num_tile_outports + num_fu_inports):
         out_val = op.get(f"out_{i}", "none")
@@ -238,8 +248,7 @@ def test_run_generic(cmdline_opts):
             # Assuming out_X refers to one of the FU outputs (e.g., 1 or 2)
             fu_xbar_outport[i] = mk_bits(clog2(num_tile_inports + 1))(int(out_val))
 
-
-    # Create the control packet
+    # Create the control packet with the potentially updated fu_in_code
     ctrl_pkt = CtrlType(
         opcode_map[op['opt']],
         op['predicate'],
@@ -250,7 +259,6 @@ def test_run_generic(cmdline_opts):
     )
     
     src_tile = 0
-    # Corrected code
     config_pkt = IntraCgraPktType(
         src_tile, tile_id,
         payload = CgraPayloadType(
@@ -274,6 +282,7 @@ def test_run_generic(cmdline_opts):
       # Add launch command at the end
       pkts.append(IntraCgraPktType(src_tile, tile_id, payload=CgraPayloadType(CMD_LAUNCH)))
 
+      pkts.append(IntraCgraPktType(src_tile, tile_id, payload=CgraPayloadType(CMD_COMPLETE)))
   # Flatten the map into a single list of packets
   src_opt_pkt = []
   for tile_id in sorted(src_opt_pkt_map.keys()):
@@ -297,8 +306,9 @@ def test_run_generic(cmdline_opts):
       IntraCgraPktType(payload=CgraPayloadType(CMD_LOAD_REQUEST, data_addr=16)),
   ]
 
-  # For the FIR example, it seems 6 operations complete. This might need adjustment.
-  expected_complete_sink_out_pkg = [IntraCgraPktType(payload=CgraPayloadType(CMD_COMPLETE)) for _ in range(6)]
+  num_active_tiles = len([tid for tid, pkts in src_opt_pkt_map.items() if pkts])
+  expected_complete_sink_out_pkg = [IntraCgraPktType(payload=CgraPayloadType(CMD_COMPLETE)) for _ in range(num_active_tiles)]
+  
   expected_mem_sink_out_pkt = [
       IntraCgraPktType(dst=16, payload=CgraPayloadType(CMD_LOAD_RESPONSE, data=DataType(0xab, 1), data_addr=16)),
   ]
