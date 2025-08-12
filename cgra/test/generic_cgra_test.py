@@ -145,9 +145,9 @@ class TestHarness(Component):
 def test_run_generic(cmdline_opts):
   
   # Load parameters from JSON files
-  with open("../cgra/test/param.json", 'r') as f:
+  with open("../BITSTREAMS_TO_TEST/param.json", 'r') as f:
     cgra_params = json.load(f)
-  with open("../cgra/test/config_fir.json", 'r') as f:
+  with open("../BITSTREAMS_TO_TEST/counter/counter_config.json", 'r') as f:
     config_data = json.load(f)
 
   # FuList for a typical CGRA
