@@ -23,20 +23,20 @@ module CgraRtl_tb;
   logic reset;
   integer cycle_count;
 
-  [cite_start]// CGRA Interface Signals (widths match the DUT) [cite: 7, 8]
-  [cite_start]logic [6:0]  address_lower; [cite: 7]
-  [cite_start]logic [6:0]  address_upper; [cite: 8]
+  // CGRA Interface Signals (widths match the DUT) 
+  logic [6:0]  address_lower; 
+  logic [6:0]  address_upper; 
   logic [1:0]  cgra_id;
 
   // CPU <-> CGRA Communication Channel
-  [cite_start]logic [181:0] recv_from_cpu_pkt__msg; [cite: 9]
-  [cite_start]logic         recv_from_cpu_pkt__val; [cite: 9]
-  [cite_start]logic         recv_from_cpu_pkt__rdy; [cite: 9]
-  [cite_start]logic [181:0] send_to_cpu_pkt__msg; [cite: 10]
-  [cite_start]logic         send_to_cpu_pkt__val; [cite: 10]
-  [cite_start]logic         send_to_cpu_pkt__rdy; [cite: 11]
+  logic [181:0] recv_from_cpu_pkt__msg; 
+  logic         recv_from_cpu_pkt__val; 
+  logic         recv_from_cpu_pkt__rdy; 
+  logic [181:0] send_to_cpu_pkt__msg; 
+  logic         send_to_cpu_pkt__val; 
+  logic         send_to_cpu_pkt__rdy; 
 
-  [cite_start]// Instantiate the Device Under Test (DUT) [cite: 12]
+  // Instantiate the DUT
   CgraRTL__087ebbb3e3bb3520 dut (
     .clk(clk),
     .reset(reset),
@@ -49,7 +49,7 @@ module CgraRtl_tb;
     .*
   );
 
-  [cite_start]// Clock generator [cite: 13]
+  // Clock generator 
   always #(`CYCLE_TIME/2) clk = ~clk;
 
   // Main test sequence
@@ -64,34 +64,34 @@ module CgraRtl_tb;
     end
 
     $display("Testbench starting with configuration: %s", config_file);
-    [cite_start]clk = 1'b0; [cite: 14]
+    clk = 1'b0; [cite: 14]
     reset = 1'b1;
     cycle_count = 0;
 
     // Initialize inputs
     recv_from_cpu_pkt__val = 1'b0;
-    [cite_start]send_to_cpu_pkt__rdy = 1'b0; [cite: 15]
+    send_to_cpu_pkt__rdy = 1'b0; [cite: 15]
 
     // 1. Reset the DUT
-    [cite_start]apply_reset(); [cite: 1]
+    apply_reset(); [cite: 1]
 
     // 2. Load configuration from the specified .cases file
-    [cite_start]load_configuration(config_file); [cite: 2, 17]
+    load_configuration(config_file); [cite: 2, 17]
 
     // 3. Load initial data (initialize j = 0 at address 10)
-    [cite_start]load_initial_data(10, 0); [cite: 3, 18]
+    load_initial_data(10, 0); [cite: 3, 18]
 
     // 4. Execute the kernel
-    [cite_start]execute_kernel(25); [cite: 4, 19]
+    execute_kernel(25); [cite: 4, 19]
 
     // 5. Read and verify the result (expect 10 at address 10)
-    [cite_start]read_and_verify_result(10, 10); [cite: 5]
+    read_and_verify_result(10, 10); [cite: 5]
 
-    [cite_start]$display("  [ TEST PASSED ]"); [cite: 20]
+    $display("  [ TEST PASSED ]"); [cite: 20]
     $finish;
   end
 
-  [cite_start]// Task to advance simulation by one clock cycle [cite: 21]
+  // Task to advance simulation by one clock cycle [cite: 21]
   task next_cycle();
     #`CYCLE_TIME;
     cycle_count++;
@@ -100,25 +100,25 @@ module CgraRtl_tb;
   // Task to apply reset to the DUT
   task apply_reset();
     $display("[%0d] Applying reset...", cycle_count);
-    [cite_start]reset = 1'b1; [cite: 22]
+    reset = 1'b1; [cite: 22]
     next_cycle();
     next_cycle();
     reset = 1'b0;
-    [cite_start]$display("[%0d] Reset released.", cycle_count); [cite: 23]
+    $display("[%0d] Reset released.", cycle_count); [cite: 23]
   endtask
 
-  [cite_start]// Task to send a single packet to the CGRA, handling val/rdy handshake [cite: 24]
+  // Task to send a single packet to the CGRA, handling val/rdy handshake [cite: 24]
   task send_cpu_pkt(input logic [181:0] pkt);
     recv_from_cpu_pkt__val = 1'b1;
     recv_from_cpu_pkt__msg = pkt;
     @(posedge clk);
-    [cite_start]while (recv_from_cpu_pkt__rdy == 1'b0) begin [cite: 25]
+    while (recv_from_cpu_pkt__rdy == 1'b0) begin [cite: 25]
       $display("[%0d] Waiting for CGRA to be ready for CPU packet...", cycle_count);
-      [cite_start]next_cycle(); [cite: 26]
+      next_cycle(); [cite: 26]
     end
     recv_from_cpu_pkt__val = 1'b0;
     $display("[%0d] CPU Packet sent successfully.", cycle_count);
-    [cite_start]next_cycle(); [cite: 27]
+    next_cycle(); [cite: 27]
   endtask
 
   // *** MODIFIED TASK ***
@@ -138,61 +138,60 @@ module CgraRtl_tb;
     while (!$feof(file_handle)) begin
       // $fscanf returns the number of successfully matched items
       if ($fscanf(file_handle, "%h\n", config_data) == 1) begin
-         [cite_start]// Format as a config packet: {opcode, data} [cite: 29, 30]
          send_cpu_pkt({2'b00, config_data});
       end
     end
 
     $fclose(file_handle);
-    [cite_start]$display("[%0d] Configuration loading complete.", cycle_count); [cite: 32]
+    $display("[%0d] Configuration loading complete.", cycle_count); 
   endtask
 
   // Task to write initial data to CGRA memory
   task load_initial_data(input int addr, input int data);
-    [cite_start]logic [181:0] write_pkt; [cite: 33]
+    logic [181:0] write_pkt;
     $display("[%0d] --- Phase: Loading Initial Data ---", cycle_count);
-    [cite_start]// Construct a memory WRITE packet: {opcode, address, data, padding} [cite: 34]
+    // Construct a memory WRITE packet: {opcode, address, data, padding} 
     write_pkt = {2'b01, 10'(addr), 32'(data), 138'b0};
-    [cite_start]send_cpu_pkt(write_pkt); [cite: 35]
-    [cite_start]$display("[%0d] Wrote %0d to address %0d.", cycle_count, data, addr); [cite: 36]
+    send_cpu_pkt(write_pkt); 
+    $display("[%0d] Wrote %0d to address %0d.", cycle_count, data, addr);
   endtask
 
   // Task to wait for the kernel to execute
   task execute_kernel(input int num_cycles);
-    [cite_start]$display("[%0d] --- Phase: Executing Kernel for %0d cycles ---", cycle_count, num_cycles); [cite: 37]
-    send_to_cpu_pkt__rdy = 1'b0; [cite_start]// Ensure we are not trying to receive anything [cite: 38]
+    $display("[%0d] --- Phase: Executing Kernel for %0d cycles ---", cycle_count, num_cycles);
+    send_to_cpu_pkt__rdy = 1'b0; // Ensure we are not trying to receive anything
     for (int i = 0; i < num_cycles; i++) begin
       next_cycle();
-    [cite_start]end [cite: 39]
+    end 
     $display("[%0d] Kernel execution finished.", cycle_count);
   endtask
 
   // Task to read the result from memory and verify it
   task read_and_verify_result(input int addr, input int expected_data);
-    [cite_start]logic [181:0] read_pkt; [cite: 40]
+    logic [181:0] read_pkt; 
     logic [31:0]  received_data;
 
     $display("[%0d] --- Phase: Reading and Verifying Result ---", cycle_count);
-    [cite_start]// Construct a memory READ packet: {opcode, address, padding} [cite: 41]
+    // Construct a memory READ packet: {opcode, address, padding} 
     read_pkt = {2'b10, 10'(addr), 170'b0};
-    [cite_start]send_cpu_pkt(read_pkt); [cite: 42]
+    send_cpu_pkt(read_pkt); 
 
     // Wait for the result packet from the CGRA
-    send_to_cpu_pkt__rdy = 1'b1; [cite_start]// Signal that we are ready to receive [cite: 43]
+    send_to_cpu_pkt__rdy = 1'b1; // Signal that we are ready to receive
     @(posedge clk);
-    [cite_start]while (send_to_cpu_pkt__val == 1'b0) begin [cite: 44]
+    while (send_to_cpu_pkt__val == 1'b0) begin 
       $display("[%0d] Waiting for result packet from CGRA...", cycle_count);
       next_cycle();
-    [cite_start]end [cite: 45]
+    end 
 
-    [cite_start]// Unpack the data from the received message [cite: 46]
+    // Unpack the data from the received message
     received_data = send_to_cpu_pkt__msg[31:0];
     $display("[%0d] Received result packet. Data: %0d", cycle_count, received_data);
 
-    [cite_start]// Verify the final result [cite: 47]
+    // Verify the final result [cite: 47]
     if (received_data != expected_data) begin
-      [cite_start]$display("FAILURE: Received data (%0d) does NOT match expected data (%0d).", received_data, expected_data); [cite: 48]
-      [cite_start]$fatal; [cite: 49]
+      $display("FAILURE: Received data (%0d) does NOT match expected data (%0d).", received_data, expected_data);
+      $fatal; 
     end
     $display("SUCCESS: Received data (%0d) matches expected data (%0d).", received_data, expected_data);
     send_to_cpu_pkt__rdy = 1'b0;
