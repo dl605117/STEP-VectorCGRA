@@ -298,7 +298,11 @@ def test_homogeneous_4x4_fir(cmdline_opts):
        (1,0)(2,0)(3,0)
   ===================================================
   cycle 0:
+<<<<<<< HEAD
   [    🔳            🔳            🔳            🔳 ]
+=======
+  [    ��            🔳            🔳            🔳 ]
+>>>>>>> darrenl/tile_wrapper_only
 
   [ 0(phi_const) →   🔳            🔳            🔳 ]
       ↓ ↺
