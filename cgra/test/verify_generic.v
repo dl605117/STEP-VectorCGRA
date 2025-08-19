@@ -6,8 +6,9 @@
 // 4. execute_kernel: Allows the CGRA to run for a specified number of cycles.
 // 5. read_and_verify_result: Reads the final value from memory and checks it.
 // To run:
-    // vcs -sverilog verify_file_driven.v CgraRTL.v -o sim_exe
-    // ./sim_exe +CONFIG_FILE=my_kernel.cases
+// verilator --cc --exe --build -Wall -Wno-TIMESCALEMOD -Wno-UNOPTFLAT -Wno-WIDTH -Wno-STMTDLY -Wno-SELRANGE --trace --timing -I. CgraRTL__087ebbb3e3bb3520_pickled.v verify_generic.v
+// ./obj_dir/verify_generic +CONFIG_FILE=my_kernel.cases
+
 
 `timescale 1ns/1ns
 
@@ -64,34 +65,34 @@ module CgraRtl_tb;
     end
 
     $display("Testbench starting with configuration: %s", config_file);
-    clk = 1'b0; [cite: 14]
+    clk = 1'b0; 
     reset = 1'b1;
     cycle_count = 0;
 
     // Initialize inputs
     recv_from_cpu_pkt__val = 1'b0;
-    send_to_cpu_pkt__rdy = 1'b0; [cite: 15]
+    send_to_cpu_pkt__rdy = 1'b0;
 
     // 1. Reset the DUT
-    apply_reset(); [cite: 1]
+    apply_reset(); 
 
     // 2. Load configuration from the specified .cases file
-    load_configuration(config_file); [cite: 2, 17]
+    load_configuration(config_file);
 
     // 3. Load initial data (initialize j = 0 at address 10)
-    load_initial_data(10, 0); [cite: 3, 18]
+    load_initial_data(10, 0);
 
     // 4. Execute the kernel
-    execute_kernel(25); [cite: 4, 19]
+    execute_kernel(25);
 
     // 5. Read and verify the result (expect 10 at address 10)
-    read_and_verify_result(10, 10); [cite: 5]
+    read_and_verify_result(10, 10);
 
-    $display("  [ TEST PASSED ]"); [cite: 20]
+    $display("  [ TEST PASSED ]");
     $finish;
   end
 
-  // Task to advance simulation by one clock cycle [cite: 21]
+  // Task to advance simulation by one clock cycle
   task next_cycle();
     #`CYCLE_TIME;
     cycle_count++;
@@ -100,25 +101,24 @@ module CgraRtl_tb;
   // Task to apply reset to the DUT
   task apply_reset();
     $display("[%0d] Applying reset...", cycle_count);
-    reset = 1'b1; [cite: 22]
+    reset = 1'b1;
     next_cycle();
     next_cycle();
     reset = 1'b0;
-    $display("[%0d] Reset released.", cycle_count); [cite: 23]
+    $display("[%0d] Reset released.", cycle_count);
   endtask
 
-  // Task to send a single packet to the CGRA, handling val/rdy handshake [cite: 24]
+  // Task to send a single packet to the CGRA, handling val/rdy handshake
   task send_cpu_pkt(input logic [181:0] pkt);
     recv_from_cpu_pkt__val = 1'b1;
     recv_from_cpu_pkt__msg = pkt;
-    @(posedge clk);
-    while (recv_from_cpu_pkt__rdy == 1'b0) begin [cite: 25]
+    while (recv_from_cpu_pkt__rdy == 1'b0) begin
       $display("[%0d] Waiting for CGRA to be ready for CPU packet...", cycle_count);
-      next_cycle(); [cite: 26]
+      next_cycle();
     end
     recv_from_cpu_pkt__val = 1'b0;
     $display("[%0d] CPU Packet sent successfully.", cycle_count);
-    next_cycle(); [cite: 27]
+    next_cycle();
   endtask
 
   // *** MODIFIED TASK ***
@@ -178,7 +178,6 @@ module CgraRtl_tb;
 
     // Wait for the result packet from the CGRA
     send_to_cpu_pkt__rdy = 1'b1; // Signal that we are ready to receive
-    @(posedge clk);
     while (send_to_cpu_pkt__val == 1'b0) begin 
       $display("[%0d] Waiting for result packet from CGRA...", cycle_count);
       next_cycle();
