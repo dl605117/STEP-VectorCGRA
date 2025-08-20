@@ -6,8 +6,7 @@ __pycache__
 *_v.py
 *_v__ALL_pickled.cpp
 *_v.so
-*.v
-*.v.cases
+
 *config_CgraRTL__*.json
 obj_dir*/
 

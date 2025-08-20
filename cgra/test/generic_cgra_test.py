@@ -145,9 +145,9 @@ class TestHarness(Component):
 def test_run_generic(cmdline_opts):
   
   # Load parameters from JSON files
-  with open("../BITSTREAMS_TO_TEST/param.json", 'r') as f:
+  with open("../BITSTREAMS_TO_TEST/counter/2x2/param.json", 'r') as f:
     cgra_params = json.load(f)
-  with open("../BITSTREAMS_TO_TEST/counter/counter_config.json", 'r') as f:
+  with open("../BITSTREAMS_TO_TEST/counter/2x2/counter_config.json", 'r') as f:
     config_data = json.load(f)
 
   # FuList for a typical CGRA
@@ -155,8 +155,8 @@ def test_run_generic(cmdline_opts):
             BranchRTL, MemUnitRTL, SelRTL, RetRTL]
   
   # Extract CGRA parameters
-  x_tiles = cgra_params.get("column", 4)
-  y_tiles = cgra_params.get("row", 4)
+  x_tiles = cgra_params.get("column", 2)
+  y_tiles = cgra_params.get("row", 2)
   ctrl_mem_size = cgra_params.get("ctrlMemConstraint", 8)
   num_registers_per_reg_bank = cgra_params.get("regConstraint", 8)
   
@@ -313,7 +313,7 @@ def test_run_generic(cmdline_opts):
   expected_complete_sink_out_pkg = [IntraCgraPktType(payload=CgraPayloadType(CMD_COMPLETE)) for _ in range(num_active_tiles)]
   
   expected_mem_sink_out_pkt = [
-      IntraCgraPktType(dst=16, payload=CgraPayloadType(CMD_LOAD_RESPONSE, data=DataType(0xab, 1), data_addr=16)),
+      IntraCgraPktType(dst=3, payload=CgraPayloadType(CMD_LOAD_RESPONSE, data=DataType(0xab, 1), data_addr=16)),
   ]
   # --- End Kernel-Specific Section ---
 
