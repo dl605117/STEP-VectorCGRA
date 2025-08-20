@@ -11,10 +11,10 @@ Author : Cheng Tan
 
 from pymtl3 import *
 from ..ThreeMulAdderShifterRTL import ThreeMulAdderShifterRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.opt_type import *
-from ...lib.messages import *
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from .lib.opt_type import *
+from .lib.messages import *
 
 #-------------------------------------------------------------------------
 # Test harness

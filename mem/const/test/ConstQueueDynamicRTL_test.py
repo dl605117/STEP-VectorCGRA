@@ -8,9 +8,9 @@ Author : Yuqi Sun
   Date : Jan 11, 2025
 """
 from ..ConstQueueDynamicRTL import ConstQueueDynamicRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL
-from ...lib.messages import *
+from .lib.basic.val_rdy.SinkRTL import SinkRTL
+from .lib.basic.val_rdy.SourceRTL import SourceRTL
+from .lib.messages import *
 
 
 #-------------------------------------------------------------------------

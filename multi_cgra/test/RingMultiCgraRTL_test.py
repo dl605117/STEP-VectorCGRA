@@ -13,14 +13,14 @@ from pymtl3.stdlib.test_utils import (run_sim,
                                       config_model_with_cmdline_opts)
 
 from ..RingMultiCgraRTL import RingMultiCgraRTL
-from ...fu.flexible.FlexibleFuRTL import FlexibleFuRTL
-from ...fu.single.AdderRTL import AdderRTL
-from ...fu.single.MemUnitRTL import MemUnitRTL
-from ..lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ..lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ..lib.cmd_type import *
-from ..lib.messages import *
-from ..lib.opt_type import *
+from .fu.flexible.FlexibleFuRTL import FlexibleFuRTL
+from .fu.single.AdderRTL import AdderRTL
+from .fu.single.MemUnitRTL import MemUnitRTL
+from lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from lib.cmd_type import *
+from lib.messages import *
+from lib.opt_type import *
 
 #-------------------------------------------------------------------------
 # Test harness

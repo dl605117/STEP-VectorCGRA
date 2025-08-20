@@ -11,7 +11,7 @@ Author : Yanghui Ou & Ron Jokai
 from pymtl3 import *
 from ..basic.Fu import Fu
 from .AluGenMacWrapperRTL import AluGenMacWrapperRTL
-from ..lib.opt_type import *
+from lib.opt_type import *
 
 class AluGenMacRTL(Fu):
 

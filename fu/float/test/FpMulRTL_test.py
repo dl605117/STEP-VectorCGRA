@@ -14,10 +14,10 @@ from pymtl3.stdlib.test_utils import (run_sim,
 from ..FpMulRTL import FpMulRTL
 from ...pymtl3_hardfloat.HardFloat.converter_funcs import (floatToFN,
                                                            fNToFloat)
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from .lib.messages import *
+from .lib.opt_type import *
 from ....mem.const.ConstQueueRTL import ConstQueueRTL
 
 round_near_even = 0b000

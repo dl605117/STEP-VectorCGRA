@@ -12,7 +12,7 @@ Author : Cheng Tan
 from pymtl3 import *
 from hypothesis import strategies as st
 from ..FlexibleFuRTL import FlexibleFuRTL
-from ..FuFL import *
+from fuFL import *
 from ...single.AdderRTL import AdderRTL
 from ...single.BranchRTL import BranchRTL
 from ...single.CompRTL import CompRTL
@@ -22,10 +22,10 @@ from ...single.MulRTL import MulRTL
 from ...single.NahRTL import NahRTL
 from ...single.PhiRTL import PhiRTL
 from ...single.ShifterRTL import ShifterRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.opt_type import *
-from ...lib.messages import *
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from .lib.opt_type import *
+from .lib.messages import *
 import hypothesis
 
 #-------------------------------------------------------------------------

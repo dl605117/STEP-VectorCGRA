@@ -11,10 +11,10 @@ Author : Cheng Tan
 from pymtl3 import *
 from pymtl3.passes.PassGroups import *
 from ..SelRTL import SelRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from .lib.messages import *
+from .lib.opt_type import *
 
 #-------------------------------------------------------------------------
 # Test harness

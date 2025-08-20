@@ -13,10 +13,10 @@ from ..AdderRTL import AdderRTL
 from ..LogicRTL import LogicRTL
 from ..MulRTL import MulRTL
 from ..ShifterRTL import ShifterRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
+from .lib.messages import *
+from .lib.opt_type import *
 from ....mem.const.ConstQueueRTL import ConstQueueRTL
 
 #-------------------------------------------------------------------------

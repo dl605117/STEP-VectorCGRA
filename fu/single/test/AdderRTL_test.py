@@ -10,10 +10,10 @@ Author : Cheng Tan
 
 from pymtl3 import *
 from ..AdderRTL import AdderRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as ValRdyTestSrcRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as ValRdyTestSinkRTL
-from ...lib.messages import *
-from ...lib.opt_type import *
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as ValRdyTestSrcRTL
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as ValRdyTestSinkRTL
+from .lib.messages import *
+from .lib.opt_type import *
 from ....mem.const.ConstQueueRTL import ConstQueueRTL
 
 #-------------------------------------------------------------------------

@@ -10,9 +10,9 @@ Author : Cheng Tan
 
 
 from pymtl3 import *
-from ..lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
-from ..lib.messages import *
-from ..lib.opt_type import *
+from lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
+from lib.messages import *
+from lib.opt_type import *
 # from ...noc.PyOCN.pymtl3_net.ocnlib.ifcs.packets import mk_ring_pkt
 from ...noc.PyOCN.pymtl3_net.ocnlib.ifcs.positions import mk_ring_pos
 from ...noc.PyOCN.pymtl3_net.ocnlib.utils import run_sim

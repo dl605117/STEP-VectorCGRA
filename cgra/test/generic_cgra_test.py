@@ -80,7 +80,7 @@ class TestHarness(Component):
     s.complete_signal_sink_out = TestSinkRTL(CtrlPktType, complete_signal_sink_out, cmp_fn = cmp_fn)
 
     # Connections
-    s.dut.cgra_id //= cgra_id
+    s.dut.cgra_id <= cgra_id 
     s.complete_signal_sink_out.recv //= s.dut.send_to_cpu_pkt
 
     complete_count_value = \
@@ -113,24 +113,24 @@ class TestHarness(Component):
            (s.complete_count < complete_count_value):
           s.complete_count <<= s.complete_count + CompleteCountType(1)
 
-    s.dut.address_lower //= DataAddrType(controller2addr_map[cgra_id][0])
-    s.dut.address_upper //= DataAddrType(controller2addr_map[cgra_id][1])
+    s.dut.address_lower <= DataAddrType(controller2addr_map[cgra_id][0])
+    s.dut.address_upper <= DataAddrType(controller2addr_map[cgra_id][1])
 
-    for tile_col in range(width):
-      s.dut.send_data_on_boundary_north[tile_col].rdy //= 0
-      s.dut.recv_data_on_boundary_north[tile_col].val //= 0
-      s.dut.recv_data_on_boundary_north[tile_col].msg //= DataType()
-      s.dut.send_data_on_boundary_south[tile_col].rdy //= 0
-      s.dut.recv_data_on_boundary_south[tile_col].val //= 0
-      s.dut.recv_data_on_boundary_south[tile_col].msg //= DataType()
+    #for tile_col in range(width):
+    #  s.dut.send_data_on_boundary_north[tile_col].rdy //= 0
+    #  s.dut.recv_data_on_boundary_north[tile_col].val //= 0
+    #  s.dut.recv_data_on_boundary_north[tile_col].msg //= DataType()
+    #  s.dut.send_data_on_boundary_south[tile_col].rdy //= 0
+    #  s.dut.recv_data_on_boundary_south[tile_col].val //= 0
+    #  s.dut.recv_data_on_boundary_south[tile_col].msg //= DataType()
 
-    for tile_row in range(height):
-      s.dut.send_data_on_boundary_west[tile_row].rdy //= 0
-      s.dut.recv_data_on_boundary_west[tile_row].val //= 0
-      s.dut.recv_data_on_boundary_west[tile_row].msg //= DataType()
-      s.dut.send_data_on_boundary_east[tile_row].rdy //= 0
-      s.dut.recv_data_on_boundary_east[tile_row].val //= 0
-      s.dut.recv_data_on_boundary_east[tile_row].msg //= DataType()
+    #for tile_row in range(height):
+    #  s.dut.send_data_on_boundary_west[tile_row].rdy //= 0
+    #  s.dut.recv_data_on_boundary_west[tile_row].val //= 0
+    #  s.dut.recv_data_on_boundary_west[tile_row].msg //= DataType()
+    #  s.dut.send_data_on_boundary_east[tile_row].rdy //= 0
+    #  s.dut.recv_data_on_boundary_east[tile_row].val //= 0
+    #  s.dut.recv_data_on_boundary_east[tile_row].msg //= DataType()
 
   def done(s):
     return (s.src_ctrl_pkt.done() and s.src_query_pkt.done()

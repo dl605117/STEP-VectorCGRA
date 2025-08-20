@@ -10,9 +10,9 @@ Author : Cheng Tan
 """
 
 from pymtl3 import *
-from ..lib.messages import *
+from lib.messages import *
 from ..CgraFL import CgraFL
-from ..lib.util.dfg_helper import *
+from lib.util.dfg_helper import *
 import os
 
 def test_fl():

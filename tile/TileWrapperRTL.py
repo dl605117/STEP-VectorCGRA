@@ -7,18 +7,18 @@ Author : Cheng Tan
   Date : Dec 22, 2024
 """
 
-from ..fu.flexible.FlexibleFuRTL import FlexibleFuRTL
-from ..fu.single.AdderRTL import AdderRTL
-from ..fu.single.BranchRTL import BranchRTL
-from ..fu.single.CompRTL import CompRTL
-from ..fu.single.MemUnitRTL import MemUnitRTL
-from ..fu.single.MulRTL import MulRTL
-from ..fu.single.PhiRTL import PhiRTL
-from ..lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
-from ..lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
-from ..lib.opt_type import *
-from ..lib.util.common import *
-from ..tile.TileRTL import TileRTL
+from fu.flexible.FlexibleFuRTL import FlexibleFuRTL
+from fu.single.AdderRTL import AdderRTL
+from fu.single.BranchRTL import BranchRTL
+from fu.single.CompRTL import CompRTL
+from fu.single.MemUnitRTL import MemUnitRTL
+from fu.single.MulRTL import MulRTL
+from fu.single.PhiRTL import PhiRTL
+from lib.basic.val_rdy.ifcs import ValRdyRecvIfcRTL as RecvIfcRTL
+from lib.basic.val_rdy.ifcs import ValRdySendIfcRTL as SendIfcRTL
+from lib.opt_type import *
+from lib.util.common import *
+from tile.TileRTL import TileRTL
 
 
 class TileWrapperRTL(Component):

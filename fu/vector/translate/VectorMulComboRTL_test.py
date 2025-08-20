@@ -14,8 +14,8 @@ from pymtl3.stdlib.test_utils import (run_sim,
                                       config_model_with_cmdline_opts)
 
 from ..VectorMulComboRTL import VectorMulComboRTL
-from ...lib.opt_type    import *
-from ...lib.messages    import *
+from .lib.opt_type    import *
+from .lib.messages    import *
 
 DataType      = mk_data( 64, 1 )
 PredicateType = mk_predicate( 1, 1 )

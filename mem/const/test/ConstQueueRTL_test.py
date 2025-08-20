@@ -11,13 +11,13 @@ Author : Cheng Tan
 
 from pymtl3 import *
 from ..ConstQueueRTL import ConstQueueRTL
-from ....fu.single.AdderRTL import AdderRTL
-# from ...lib.basic.en_rdy.test_sinks import TestSinkRTL
-# from ...lib.basic.en_rdy.test_srcs import TestSrcRTL
-from ...lib.basic.val_rdy.SourceRTL import SourceRTL as ValRdyTestSrcRTL
-from ...lib.basic.val_rdy.SinkRTL import SinkRTL as ValRdyTestSinkRTL
-from ...lib.opt_type import *
-from ...lib.messages import *
+from ..fu.single.AdderRTL import AdderRTL
+# from .lib.basic.en_rdy.test_sinks import TestSinkRTL
+# from .lib.basic.en_rdy.test_srcs import TestSrcRTL
+from .lib.basic.val_rdy.SourceRTL import SourceRTL as ValRdyTestSrcRTL
+from .lib.basic.val_rdy.SinkRTL import SinkRTL as ValRdyTestSinkRTL
+from .lib.opt_type import *
+from .lib.messages import *
 
 #-------------------------------------------------------------------------
 # Test harness
