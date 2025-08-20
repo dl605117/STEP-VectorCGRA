@@ -57,13 +57,13 @@ class TestHarness(Component):
     s.num_tiles = width * height
     s.src_ctrl_pkt = TestSrcRTL(CtrlPktType, src_ctrl_pkt)
     # Print src_ctrl_pkt info
-    print("\n--- src_ctrl_pkt info ---")
-    if hasattr(s.src_ctrl_pkt, 'msgs'): # TestSrcRTL often stores messages in a 'msgs' attribute
-        for i, pkt in enumerate(s.src_ctrl_pkt.msgs):
-            print(f"Packet {i}: {pkt}")
-    else:
-        print("Could not find 'msgs' attribute in src_ctrl_pkt. Inspect TestSrcRTL implementation.")
-    print("-------------------------\n")
+    #print("\n--- src_ctrl_pkt info ---")
+    #if hasattr(s.src_ctrl_pkt, 'msgs'): # TestSrcRTL often stores messages in a 'msgs' attribute
+    #    for i, pkt in enumerate(s.src_ctrl_pkt.msgs):
+    #        print(f"Packet {i}: {pkt}")
+    #else:
+    #    print("Could not find 'msgs' attribute in src_ctrl_pkt. Inspect TestSrcRTL implementation.")
+    #print("-------------------------\n")
     s.src_query_pkt = TestSrcRTL(CtrlPktType, src_query_pkt)
 
     s.dut = DUT(DataType, PredicateType, CtrlPktType, CgraPayloadType,
@@ -267,6 +267,9 @@ def test_run_generic(cmdline_opts):
             ctrl=ctrl_pkt
         )
     )
+    print("---------PACKET------------")
+    print(config_pkt)
+    print("----------END--------------")
     src_opt_pkt_map[tile_id].append(config_pkt)
 
   total_ctrl_steps = max_cycle + 1
