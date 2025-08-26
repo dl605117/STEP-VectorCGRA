@@ -145,9 +145,9 @@ class TestHarness(Component):
 def test_run_generic(cmdline_opts):
   
   # Load parameters from JSON files
-  with open("../BITSTREAMS_TO_TEST/counter/2x2/param.json", 'r') as f:
+  with open("../BITSTREAMS_TO_TEST/counter/4x4/param.json", 'r') as f:
     cgra_params = json.load(f)
-  with open("../BITSTREAMS_TO_TEST/counter/2x2/counter_config.json", 'r') as f:
+  with open("../BITSTREAMS_TO_TEST/counter/4x4/counter_config.json", 'r') as f:
     config_data = json.load(f)
 
   # FuList for a typical CGRA
@@ -310,7 +310,7 @@ def test_run_generic(cmdline_opts):
   expected_complete_sink_out_pkg = [IntraCgraPktType(payload=CgraPayloadType(CMD_COMPLETE)) for _ in range(num_active_tiles)]
   
   expected_mem_sink_out_pkt = [
-      IntraCgraPktType(dst=3, payload=CgraPayloadType(CMD_LOAD_RESPONSE, data=DataType(0xab, 1), data_addr=3)),
+      IntraCgraPktType(dst=16, payload=CgraPayloadType(CMD_LOAD_RESPONSE, data=DataType(0xab, 1), data_addr=16)),
   ]
   # --- End Kernel-Specific Section ---
 
