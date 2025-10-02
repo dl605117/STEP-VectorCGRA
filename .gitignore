@@ -2,5 +2,29 @@ build
 __pycache__
 .hypothesis
 
+# PyMTL specific
 pymtl_import_config_*.json
 __init__.py
+
+# Verilog generated
+*.v
+*.v.cases
+
+# C++ generated
+*.cpp
+*_v.py
+*_v.so
+
+# Simulation artifacts
+*.log
+*.daidir
+*.vcd
+*.vpd
+
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
