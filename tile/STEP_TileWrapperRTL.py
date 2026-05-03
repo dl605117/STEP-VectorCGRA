@@ -58,6 +58,7 @@ class STEP_TileWrapperRTL(Component):
         
         # South ST Connections
         s.send_south_data_port = [ OutPort(DataType) for _ in range(num_tile_cols) ]
+        s.send_south_addr_port = [ OutPort(DataType) for _ in range(num_tile_cols) ]
         s.send_south_pred_port = [ OutPort(1) for _ in range(num_tile_cols) ]
 
         # North LD Connections
@@ -285,11 +286,20 @@ class STEP_TileWrapperRTL(Component):
                         s.tiles[i][j].tile_in_pred_port[PORT_SOUTHEAST] //= 1
                 
                 # Connect South Ports to Ld/St Unit
+                # The South Ports take the address and predicate
                 if i == num_tile_rows - 1:
                     s.tiles[i][j].tile_in_data_port[PORT_SOUTH] //= DataType()
-                    s.tiles[i][j].tile_out_data_port[PORT_SOUTH] //= s.send_south_data_port[j]
+                    s.tiles[i][j].tile_out_data_port[PORT_SOUTH] //= s.send_south_addr_port[j]
                     s.tiles[i][j].tile_in_pred_port[PORT_SOUTH] //= 0
                     s.tiles[i][j].tile_out_pred_port[PORT_SOUTH] //= s.send_south_pred_port[j]
+                    # The Diagonal Ports take the data
+                    if num_tile_inports == 8:
+                        if j < (num_tile_cols // 2):
+                            # Left Half: Wire South-East to Logical South Data
+                            s.tiles[i][j].tile_out_data_port[PORT_SOUTHEAST] //= s.send_south_data_port[j]
+                        else:
+                            # Right Half: Wire South-West to Logical South Data
+                            s.tiles[i][j].tile_out_data_port[PORT_SOUTHWEST] //= s.send_south_data_port[j]
 
         # Connect Tile Bitstreams    
         # for i in range(num_tile_rows):
