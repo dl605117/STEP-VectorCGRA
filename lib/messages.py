@@ -394,18 +394,26 @@ def mk_cfg_metadata_pkt(
                         CfgTokenizerType,
                         prefix="CfgMetadataPkt"):
     
-    ThreadCountType = mk_bits(clog2(MAX_THREAD_COUNT))
+    ThreadIdxType = mk_bits(clog2(MAX_THREAD_COUNT))
+    ThreadCountType = mk_bits(clog2(MAX_THREAD_COUNT + 1))
     CfgIdType = mk_bits(clog2(MAX_BITSTREAM_COUNT))
     CmdType = mk_bits(max(1, NUM_CMDS))
+    ConstImmType = mk_bits(min(8, DataType.nbits))
 
     new_name = f"{prefix}_{num_rd_ports}_{num_wr_ports}"
 
     def str_func(s):
-        return f"CfgMetadataPkt: cfg_id [{s.cfg_id}, br_id: {s.br_id}, thread_count: {s.thread_count}, start_cfg: {s.start_cfg}, end_cfg: {s.end_cfg}]\n"
+        return (
+            f"CfgMetadataPkt: cfg_id [{s.cfg_id}, br_id: {s.br_id}, "
+            f"thread_count_min: {s.thread_count_min}, "
+            f"thread_count_max: {s.thread_count_max}, "
+            f"start_cfg: {s.start_cfg}, end_cfg: {s.end_cfg}]\n"
+        )
 
     field_dict = {}
     # TODO @darrenl pred_tile_valid is whether the immediate rf predicate is 0 or 1. should be address instead
     field_dict['cmd'] = CmdType
+    field_dict['tile_load_count'] = mk_bits(clog2(num_tiles+1))
     field_dict['pred_tile_valid'] = [Bits1 for _ in range(num_tiles)]
     field_dict['ld_enable'] = [Bits1 for _ in range(num_ld_ports)]
     field_dict['st_enable'] = [Bits1 for _ in range(num_st_ports)]
@@ -413,14 +421,34 @@ def mk_cfg_metadata_pkt(
     field_dict['in_regs'] = [RegAddrType for _ in range(num_rd_ports)]
     field_dict['in_regs_val'] = [Bits1 for _ in range(num_rd_ports)]
     field_dict['in_tid_enable'] = [Bits1 for _ in range(num_rd_ports)]
+    field_dict['in_pred_regs'] = [PredAddrType for _ in range(num_rd_ports)]
+    field_dict['in_pred_en'] = [Bits1 for _ in range(num_rd_ports)]
+    field_dict['in_pred_inv'] = [Bits1 for _ in range(num_rd_ports)]
+    field_dict['in_const_vals'] = [ConstImmType for _ in range(num_rd_ports)]
+    field_dict['in_pred_reset_const_en'] = [Bits1 for _ in range(num_rd_ports)]
     field_dict['out_regs'] = [RegAddrType for _ in range(num_wr_ports)]
     field_dict['out_regs_val'] = [Bits1 for _ in range(num_wr_ports)]
+    field_dict['out_pred_regs'] = [PredAddrType for _ in range(num_wr_ports)]
+    field_dict['out_pred_regs_val'] = [Bits1 for _ in range(num_wr_ports)]
     field_dict['tokenizer_cfg'] = CfgTokenizerType
     field_dict['cfg_id'] = CfgIdType
     field_dict['br_id'] = CfgIdType
-    field_dict['thread_count'] = ThreadCountType
+    field_dict['thread_count_min'] = ThreadCountType
+    field_dict['thread_count_max'] = ThreadCountType
     field_dict['start_cfg'] = Bits1
     field_dict['end_cfg'] = Bits1
+    # Branching / predication control
+    field_dict['branch_en'] = Bits1
+    field_dict['branch_has_else'] = Bits1
+    field_dict['branch_backedge_sel'] = mk_bits(2)
+    field_dict['pred_reg_id'] = PredAddrType
+    field_dict['branch_true_cfg_id'] = CfgIdType
+    field_dict['branch_false_cfg_id'] = CfgIdType
+    field_dict['reconverge_cfg_id'] = CfgIdType
+    field_dict['loop_en'] = Bits1
+    field_dict['loop_start_cfg_id'] = CfgIdType
+    field_dict['loop_exit_cfg_id'] = CfgIdType
+    field_dict['loop_max'] = ThreadCountType
 
     return mk_bitstruct(new_name, field_dict,
         namespace = {'__str__': str_func}
@@ -485,14 +513,14 @@ def mk_bitstream_pkt(num_tiles,
         namespace = {'__str__': str_func}
 )
 
-def mk_ld_req_pkt(prefix="LdReqPkt"):
+def mk_ld_req_pkt(addr_nbits=AXI_ADDR_BITWIDTH, prefix="LdReqPkt"):
 
-    new_name = f"{prefix}_n_tiles"
+    new_name = f"{prefix}_{addr_nbits}"
 
     def str_func(s):
         return f"LdReqPkt: bitstream:\n"
 
-    AddrType = mk_bits( AXI_ADDR_BITWIDTH )
+    AddrType = mk_bits( addr_nbits )
     IdType = mk_bits( clog2(MAX_THREAD_COUNT) )
 
     field_dict = {}
@@ -521,18 +549,21 @@ def mk_ld_resp_pkt(DataType, prefix="LdRespPkt"):
 )
 
 def mk_st_req_pkt(DataType,
+                    addr_nbits=AXI_ADDR_BITWIDTH,
                     prefix="StReqPkt"):
 
-    new_name = f"{prefix}_n_tiles"
+    new_name = f"{prefix}_{addr_nbits}"
 
     def str_func(s):
         return f"StReqPkt: bitstream:\n"
 
-    AddrType = mk_bits( AXI_ADDR_BITWIDTH )
+    AddrType = mk_bits( addr_nbits )
+    IdType = mk_bits( clog2(MAX_THREAD_COUNT) )
 
     field_dict = {}
     field_dict['addr'] = AddrType
     field_dict['data'] = DataType
+    field_dict['id']   = IdType
 
     return mk_bitstruct(new_name, field_dict,
         namespace = {'__str__': str_func}
@@ -577,7 +608,7 @@ def mk_tile_bitstream_pkt(
     field_dict['tile_out_shift_amounts'] = [ShiftAmountType for _ in range(num_tile_outports)]
     field_dict['tile_fwd_route'] = [TileOutType for _ in range(num_tile_inports)]
     field_dict['const_val'] = DataType
-    field_dict['pred_fwd_route'] = TilePortType
+    field_dict['pred_based_sel_in_to_out_route'] = TilePortType
     field_dict['pred_gen'] = Bits1
     field_dict['opt_type'] = OperationType
 
@@ -658,4 +689,3 @@ def mk_controller_noc_xbar_pkt(InterCgraPktType,
     },
     namespace = {'__str__': str_func}
   )
-

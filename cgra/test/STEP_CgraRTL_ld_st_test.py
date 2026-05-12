@@ -4,7 +4,7 @@ from pymtl3.stdlib.test_utils import (run_sim,
 
 from ..STEP_CgraRTL import STEP_CgraRTL
 from ..CgraTrackedPktChunked import CgraTrackedPktChunked
-from ...lib.basic.AxiSourceRTL import AxiLdSourceRTL, AxiLdSourceTriggeredRTL, AxiStSourceRTL, AxiStSourceTriggeredRTL
+from ...lib.basic.AxiSourceRTL import AxiLdSourceRTL, AxiLdSourceTriggeredRTL, AxiStSourceRTL, AxiStSourceTriggeredMatchRTL
 from ...lib.basic.SourceTriggeredRTL import SourceTriggeredRTL
 from ...lib.basic.val_rdy.SinkRTL import SinkRTL as TestSinkRTL
 from ...lib.basic.val_rdy.SourceRTL import SourceRTL as TestSrcRTL
@@ -23,6 +23,9 @@ num_fu_outports = 1
 num_register_banks = 2
 num_registers = 16
 num_pred_registers = 16
+num_threads = 20
+active_thread_min = 2
+active_thread_span = num_threads - active_thread_min
 
 class TestHarness(Component):
     def construct(s,
@@ -54,12 +57,12 @@ class TestHarness(Component):
         s.num_tiles = num_tile_cols * num_tile_rows
 
         # Configure Sources
-        ld_axi_msgs = [[] for _ in range(num_ld_ports - 1)] + [[5,5,5,5]]
-        st_counts = [0, 1]
+        ld_axi_msgs = [[] for _ in range(num_ld_ports - 1)] + [[i for i in range(active_thread_span * 2)]]
+        st_axi_msgs = [[], [2*i*3 for i in range(active_thread_span)]]
         s.cpu_to_cgra_metadata_pkts = TestSrcRTL(CfgMetadataType, cpu_to_cgra_metadata_msgs)
-        s.cpu_to_cgra_bitstream_pkts = SourceTriggeredRTL(TileBitstreamType, cpu_to_cgra_bitstream_msgs, chunk_size=s.num_tiles, delay=1)
-        s.ld_axi_pkts = [AxiLdSourceTriggeredRTL(DataType, ld_axi_msgs[i]) for i in range(num_ld_ports)]
-        s.st_axi_pkts = [AxiStSourceTriggeredRTL(DataType, st_counts[i]) for i in range(num_st_ports)]
+        s.cpu_to_cgra_bitstream_pkts = SourceTriggeredRTL(TileBitstreamType, cpu_to_cgra_bitstream_msgs, s.num_tiles, delay=1)
+        s.ld_axi_pkts = [AxiLdSourceTriggeredRTL(DataType, ld_axi_msgs[i], delay=13) for i in range(num_ld_ports)]
+        s.st_axi_pkts = [AxiStSourceTriggeredMatchRTL(DataType, st_axi_msgs[i], delay = 40) for i in range(num_st_ports)]
 
         # Configure Sinks
         cmp_fn = lambda a, b : a == b
@@ -94,6 +97,8 @@ class TestHarness(Component):
         s.dut.send_to_cpu_done //= s.cgra_to_cpu_signal.recv.val
         s.dut.recv_from_cpu_bitstream_pkt //= s.cpu_to_cgra_bitstream_pkts.send
         s.dut.pc_req_trigger //= s.cpu_to_cgra_bitstream_pkts.trigger_in
+        s.dut.pc_req_trigger_count //= s.cpu_to_cgra_bitstream_pkts.trigger_count
+        s.dut.pc_req_trigger_complete //= s.cpu_to_cgra_bitstream_pkts.trigger_complete
 
     def done(s):
         for i in range(s.num_ld_ports):
@@ -121,12 +126,12 @@ def init_param():
     num_ld_ports = num_tile_cols // 2
     num_st_ports = num_tile_cols // 2
     num_consts = 4
-    thread_count = 2
     num_taker_ports = num_rd_ports
     num_returner_ports = num_wr_ports + num_ld_ports + num_st_ports
 
     DataType = mk_bits(8)
     TileIdType = mk_bits( clog2(num_tiles) )
+    TileCountType = mk_bits( clog2(num_tiles + 1) )
     OperationType = mk_bits( clog2(NUM_OPTS) )
     TilePortType = mk_bits( clog2(num_tile_inports + 1) ) # +1 for no connection
     TileOutType = mk_bits( num_tile_outports )
@@ -232,9 +237,9 @@ def init_param():
 
     ### Full Bitstream Pkt ###
     bitstreams = [
-        load_row + genNoOpFromOffset(num_tile_cols, num_tile_cols * (num_tile_rows - 1)),
-        genNoOpFromOffset(0, num_tile_cols * (num_tile_rows - 2)) + mul_row + store_row,
-        load_row + genNoOpFromOffset(num_tile_cols, num_tile_cols * (num_tile_rows - 1)),
+        load_row,
+        mul_row + store_row,
+        load_row,
     ]
 
     # Funnel individual tile pkts
@@ -296,6 +301,7 @@ def init_param():
     cpu_to_cgra_metadata_msgs = [
         CfgMetadataType(
                         cmd = CMD_CONFIG,
+                        tile_load_count = TileCountType(4),
                         pred_tile_valid = [b1(1) for _ in range(num_tiles)],
                         in_regs = [RegAddrType(0) for _ in range(num_rd_ports)],
                         in_regs_val = [b1(1)] + [b1(0) for _ in range(num_rd_ports - 1)],
@@ -307,12 +313,14 @@ def init_param():
                         tokenizer_cfg = cfg_tokenizer_pkt[0],
                         cfg_id = 0,
                         br_id = 1,
-                        thread_count = thread_count,
+                        thread_count_min = active_thread_min,
+                        thread_count_max = num_threads,
                         start_cfg = 1,
                         end_cfg = 0,
                     ),
         CfgMetadataType(
                         cmd = CMD_CONFIG,
+                        tile_load_count = TileCountType(8),
                         pred_tile_valid = [b1(1) for _ in range(num_tiles)],
                         in_regs = [RegAddrType(0) for _ in range(num_rd_ports)],
                         in_regs_val = [b1(0) for _ in range(num_rd_ports - 8)] + [b1(1), b1(0)] + [b1(0), b1(0)] * 3,
@@ -322,12 +330,14 @@ def init_param():
                         tokenizer_cfg = cfg_tokenizer_pkt[1],
                         cfg_id = 1,
                         br_id = 2,
-                        thread_count = thread_count,
+                        thread_count_min = 0,
+                        thread_count_max = num_threads,
                         start_cfg = 0,
                         end_cfg = 0,
                     ),
         CfgMetadataType(
                         cmd = CMD_CONFIG,
+                        tile_load_count = TileCountType(4),
                         pred_tile_valid = [b1(1) for _ in range(num_tiles)],
                         in_regs = [RegAddrType(0) for _ in range(num_rd_ports)],
                         in_regs_val = [b1(1)] + [b1(0) for _ in range(num_rd_ports - 1)],
@@ -338,7 +348,8 @@ def init_param():
                         tokenizer_cfg = cfg_tokenizer_pkt[2],
                         cfg_id = 2,
                         br_id = 0,
-                        thread_count = thread_count,
+                        thread_count_min = 0,
+                        thread_count_max = num_threads,
                         start_cfg = 0,
                         end_cfg = 1,
                     ),

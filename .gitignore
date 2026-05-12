@@ -11,6 +11,11 @@ ucli.key
 # Verilog generated
 *.v
 *.v.cases
+*_v.cpp*
+*.v*
+*_v.so*
+*_v.py*
+*.json.*
 
 # C++ generated
 *.cpp
@@ -30,6 +35,9 @@ ucli.key
 *.swo
 *~
 
+# CV6
+cv6_integration/
+
 # Vivado
 vivado_project/
 vivado_vector_cgra/
@@ -39,3 +47,5 @@ vivado_vector_cgra/
 **/cgra_proj*/
 *.tcl
 **/vivado_output/
+MMIO_DMA_STEP_example.c
+DICEScoreboard.sv

@@ -14,6 +14,7 @@ Author : Cheng Tan
   Date : Nov 26, 2024
 """
 
+from pymtl3 import trunc
 from ..fu.flexible.FlexibleFuRTL import FlexibleFuRTL
 from ..fu.single.AdderRTL import AdderRTL
 from ..fu.single.BranchRTL import BranchRTL
@@ -104,34 +105,45 @@ class STEP_TileCrossbarRTL(Component):
 
         ##### Predicate evaluation logic #####
         @update
-        def evaluate_predicates():
-            # Get the configured input predicate port for this operation
-            s.pred_in_val @= 1
+        def evaluate_predicate_inputs():
+            pred_inputs_valid = Bits1(1)
+            should_forward = DirectionType(0)
             for i in range(num_fu_inports):
-                if s.tile_bitstream.tile_in_route[i] > 0:
-                    input_idx = AbsoluteTileInPortType(s.tile_bitstream.tile_in_route[i] - 1)
+                route = s.tile_bitstream.tile_in_route[i]
+                if route > 0:
+                    input_idx = trunc(route - 1, AbsoluteTileInPortType.nbits)
                     if ~s.tile_in_pred_port[input_idx]:
-                        s.pred_in_val @= 0
-            
-            s.should_forward @= DirectionType(0)
-            s.pred_out_value @= 1
-            if ~s.pred_in_val | ~s.pred_in_rf_buffer:
-                if s.tile_bitstream.pred_fwd_route > 0:
-                    s.should_forward @= DirectionType(s.tile_bitstream.pred_fwd_route - 1)
-            elif s.tile_bitstream.pred_gen:
-                # TODO @darrenl double check is lower bit
-                s.pred_out_value @= Bits1(s.recv_from_fu[0])
+                        pred_inputs_valid = Bits1(0)
+
+            if (~pred_inputs_valid | ~s.pred_in_rf_buffer) & (s.tile_bitstream.pred_based_sel_in_to_out_route > 0):
+                # pred_based_sel_in_to_out_route is encoded as a 0-based tile
+                # input port enum in the bitstream. Convert to 1-based token
+                # index here because should_forward=0 means "no forwarding".
+                should_forward = DirectionType(s.tile_bitstream.pred_based_sel_in_to_out_route + 1)
+            s.pred_in_val @= pred_inputs_valid
+            s.should_forward @= should_forward
+
+        @update
+        def route_predicate_outputs():
+            pred_out_value = Bits1(1)
+            if s.tile_bitstream.pred_gen:
+                # Predicate-generating tiles drive their routed predicate from
+                # the FU result after the normal data path has been selected.
+                pred_out_value = trunc(s.recv_from_fu[0], 1)
             elif ~(s.pred_in_val & s.pred_in_rf_buffer):
-                s.pred_out_value @= 0
-            
+                pred_out_value = Bits1(0)
+            s.pred_out_value @= pred_out_value
+
             for i in range(num_tile_outports):
+                out_idx = AbsoluteTileOutPortType(num_tile_outports - i - 1)
+                pred_forward = Bits1(0)
+                for in_port in range(num_tile_inports):
+                    if s.tile_bitstream.tile_fwd_route[in_port][i]:
+                        pred_forward = s.tile_in_pred_port[AbsoluteTileInPortType(in_port)]
                 if s.tile_bitstream.tile_pred_route[i]:
-                    s.tile_preshift_out_pred_port[AbsoluteTileOutPortType(num_tile_outports - i - 1)] @= s.pred_out_value
+                    s.tile_preshift_out_pred_port[out_idx] @= pred_out_value
                 else:
-                    s.tile_preshift_out_pred_port[AbsoluteTileOutPortType(num_tile_outports - i - 1)] @= 0
-                    for in_port in range(num_tile_inports):
-                        if s.tile_bitstream.tile_fwd_route[in_port][i]:
-                            s.tile_preshift_out_pred_port[AbsoluteTileOutPortType(num_tile_outports - i - 1)] @= s.tile_in_pred_port[AbsoluteTileOutPortType(in_port)]
+                    s.tile_preshift_out_pred_port[out_idx] @= pred_forward
 
         @update
         def update_fu_out_routing():
@@ -143,34 +155,35 @@ class STEP_TileCrossbarRTL(Component):
             if ~((s.should_forward > 0) & (s.tile_bitstream.opt_type != OPT_NAH)):
                 # Normal operation - send to FU based on configuration
                 for i in range(num_fu_inports):
-                    tile_port_idx = AbsoluteTileInPortType(s.tile_bitstream.tile_in_route[i] - 1)
-                    if s.tile_bitstream.tile_in_route[i] != 0:
+                    route = s.tile_bitstream.tile_in_route[i]
+                    if route != 0:
+                        tile_port_idx = trunc(route - 1, AbsoluteTileInPortType.nbits)
                         s.send_to_fu[i] @= s.tile_in_data_port[tile_port_idx]
-                    else:
-                        s.send_to_fu[i] @= DataType()
 
         @update
         def update_data_port_out():
+            forward_active = (s.should_forward > 0) & (s.tile_bitstream.opt_type != OPT_NAH)
+            fu_route_active = s.tile_bitstream.opt_type != OPT_NAH
+            forwarded_port_idx = AbsoluteTileInPortType(0)
+            if forward_active:
+                forwarded_port_idx = trunc(s.should_forward - 1, AbsoluteTileInPortType.nbits)
+
             # Default port
             for i in range(num_tile_outports):
                 s.tile_preshift_out_data_port[i] @= DataType()
 
-            # Handle forwarding logic when predicates are false
-            if (s.should_forward > 0) & (s.tile_bitstream.opt_type != OPT_NAH):
-                # Forward input data that matches write address, or any data if different addr type
-                for i in range(num_tile_outports):
-                    if s.tile_bitstream.tile_out_route[i]:
-                        s.tile_preshift_out_data_port[AbsoluteTileOutPortType(num_tile_outports - i - 1)] @= s.tile_in_data_port[AbsoluteTileOutPortType(s.should_forward - 1)]      
-            else:
-                # Route FU output to tile outputs
-                # TODO: @darrenl currently assuming only 1 fu outport
-                if (s.tile_bitstream.opt_type != OPT_NAH):
-                    for i in range(num_tile_outports):
-                        if s.tile_bitstream.tile_out_route[i]:
-                            s.tile_preshift_out_data_port[AbsoluteTileOutPortType(num_tile_outports - i - 1)] @= s.recv_from_fu[0]
+            # Route main data path to tile outputs
+            for i in range(num_tile_outports):
+                out_idx = AbsoluteTileOutPortType(num_tile_outports - i - 1)
+                if s.tile_bitstream.tile_out_route[i]:
+                    if forward_active:
+                        s.tile_preshift_out_data_port[out_idx] @= s.tile_in_data_port[forwarded_port_idx]
+                    elif fu_route_active:
+                        # TODO: @darrenl currently assuming only 1 fu outport
+                        s.tile_preshift_out_data_port[out_idx] @= s.recv_from_fu[0]
             
             # Fwd any remaining logic
             for i in range(num_tile_inports):
                 for j in range(num_tile_outports):
                     if s.tile_bitstream.tile_fwd_route[i][j]:
-                        s.tile_preshift_out_data_port[AbsoluteTileOutPortType(num_tile_outports - j - 1)] @= s.tile_in_data_port[AbsoluteTileOutPortType(i)]
+                        s.tile_preshift_out_data_port[AbsoluteTileOutPortType(num_tile_outports - j - 1)] @= s.tile_in_data_port[AbsoluteTileInPortType(i)]

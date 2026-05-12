@@ -16,8 +16,11 @@ from pymtl3 import *
 # Needs to be updated once more operations are added/supported.
 NUM_OPTS = 64
 
-OPT_START                 = Bits6( 0  )
-OPT_NAH                   = Bits6( 1  )
+# Original before STEP
+# OPT_START                 = Bits6( 0  )
+# OPT_NAH                   = Bits6( 1  )
+OPT_START                 = Bits6( 1  )
+OPT_NAH                   = Bits6( 0  )
 OPT_PAS                   = Bits6( 31 )
 OPT_ADD                   = Bits6( 2  )
 OPT_ADD_CONST             = Bits6( 25 )
@@ -42,7 +45,8 @@ OPT_BRH_START             = Bits6( 34 )
 OPT_PHI                   = Bits6( 17 )
 OPT_PHI_CONST             = Bits6( 32 )
 OPT_SEL                   = Bits6( 27 )
-OPT_LD_CONST              = Bits6( 28 )
+OPT_MOD                   = Bits6( 28 )
+OPT_LD_CONST              = Bits6( 59 )
 OPT_STR_CONST             = Bits6( 58 )
 OPT_MUL_ADD               = Bits6( 18 )
 OPT_MUL_CONST             = Bits6( 29 )
@@ -60,8 +64,17 @@ OPT_FADD_CONST            = Bits6( 39 )
 OPT_FINC                  = Bits6( 40 )
 OPT_FMUL                  = Bits6( 41 )
 OPT_FMUL_CONST            = Bits6( 42 )
+OPT_LLS_CONST             = Bits6( 43 )
 
-OPT_VEC_ADD          = Bits6( 50 )
+# OPT_VEC_ADD          = Bits6( 50 )
+# OPT_VEC_INC          = Bits6( 51 )
+# OPT_VEC_ADD_CONST    = Bits6( 52 )
+# OPT_VEC_SUB          = Bits6( 53 )
+# OPT_VEC_SUB_CONST    = Bits6( 54 )
+# OPT_VEC_MUL          = Bits6( 55 )
+# OPT_VEC_REDUCE_ADD   = Bits6( 56 )
+# OPT_VEC_REDUCE_MUL   = Bits6( 57 )
+OPT_LT_CONST          = Bits6( 50 )
 OPT_VEC_INC          = Bits6( 51 )
 OPT_VEC_ADD_CONST    = Bits6( 52 )
 OPT_VEC_SUB          = Bits6( 53 )
@@ -119,8 +132,9 @@ OPT_SYMBOL_DICT = {
   OPT_FSUB           : "(f-)",
   OPT_FMUL           : "(f*)",
   OPT_FMUL_CONST     : "(f*')",
+  OPT_LLS_CONST      : "(<<')",
 
-  OPT_VEC_ADD         : "(v1+)",
+  OPT_LT_CONST        : "(?<cst)",
   OPT_VEC_INC         : "(v1++)",
   OPT_VEC_ADD_CONST   : "(v1+')",
   OPT_VEC_SUB         : "(v1-)",
@@ -128,6 +142,14 @@ OPT_SYMBOL_DICT = {
   OPT_VEC_MUL         : "(v1*)",
   OPT_VEC_REDUCE_ADD  : "(vall+)",
   OPT_VEC_REDUCE_MUL  : "(vall*)",
+#   OPT_VEC_ADD         : "(v1+)",
+#   OPT_VEC_INC         : "(v1++)",
+#   OPT_VEC_ADD_CONST   : "(v1+')",
+#   OPT_VEC_SUB         : "(v1-)",
+#   OPT_VEC_SUB_CONST   : "(v1-')",
+#   OPT_VEC_MUL         : "(v1*)",
+#   OPT_VEC_REDUCE_ADD  : "(vall+)",
+#   OPT_VEC_REDUCE_MUL  : "(vall*)",
 
   OPT_LT  : "(?<)",
   OPT_GTE : "(?>=)",
