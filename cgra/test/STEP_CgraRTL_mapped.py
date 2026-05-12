@@ -912,8 +912,8 @@ def test_normalize_tokenizer_wr_routes_default_mapping():
     cfg0_before = next(meta for meta in cpu_metadata_pkts if int(meta.cfg_id) == 0 and int(meta.cmd) != CMD_LAUNCH)
     row2_before = _route_word_to_bits(cfg0_before.tokenizer_cfg.token_route_sink_enable[2], num_returner_ports)
     row4_before = _route_word_to_bits(cfg0_before.tokenizer_cfg.token_route_sink_enable[4], num_returner_ports)
-    assert row2_before == [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
-    assert row4_before == [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+    assert row2_before == [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+    assert row4_before == [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
 
     _normalize_tokenizer_wr_routes(cpu_metadata_pkts, cgra_def)
     _prune_default_dead_tokenizer_sinks(cpu_metadata_pkts, cgra_def, DEFAULT_DFG_JSON)
@@ -925,9 +925,9 @@ def test_normalize_tokenizer_wr_routes_default_mapping():
     row4_after = _route_word_to_bits(cfg0_after.tokenizer_cfg.token_route_sink_enable[4], num_returner_ports)
     row13_cfg2_after = _route_word_to_bits(cfg2_after.tokenizer_cfg.token_route_sink_enable[13], num_returner_ports)
 
-    assert row2_after == [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0]
-    assert row4_after == [0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
-    assert row13_cfg2_after == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
+    assert row2_after == [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+    assert row4_after == [0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
+    assert row13_cfg2_after == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
 
 
 def test_default_mapping_reg0_write_then_cfg2_read():
