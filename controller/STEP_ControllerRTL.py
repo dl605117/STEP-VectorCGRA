@@ -29,6 +29,18 @@ class STEP_ControllerRTL(Component):
     MaskType = mk_bits(MAX_THREAD_COUNT)
     TileCountType = mk_bits(clog2(num_tiles + 1))
     StackDepthType = mk_bits(clog2(MAX_BITSTREAM_COUNT + 1))
+    ControlShadowType = mk_bitstruct(
+        "CfgControlShadow",
+        {
+            "cfg_id": BitstreamAddrType,
+            "br_id": BitstreamAddrType,
+            "end_cfg": Bits1,
+            "tile_load_count": TileCountType,
+            "branch_en": Bits1,
+            "pred_reg_id": PredRegType,
+            "reconverge_cfg_id": BitstreamAddrType,
+        },
+    )
     
     # CPU ports
     s.recv_from_cpu_bitstream_pkt = RecvIfcRTL(TileBitstreamType)
@@ -127,9 +139,8 @@ class STEP_ControllerRTL(Component):
     s.cfg_metadata_rd = OutPort(CfgMetadataType)
     s.cfg_metadata_rd //= s.cfg_mem_metadata.rdata
 
-    # Shadow metadata storage for low-latency reads in control logic
-    s.cfg_mem_shadow = [ Wire(CfgMetadataType) for _ in range(MAX_BITSTREAM_COUNT) ]
-    s.cfg_mem_shadow_rdata = Wire(CfgMetadataType)
+    # Shadow only the metadata fields used for control decisions.
+    s.cfg_ctrl_shadow = [ Wire(ControlShadowType) for _ in range(MAX_BITSTREAM_COUNT) ]
     s.br_id_by_load_pc = Wire(BitstreamAddrType)
     s.end_cfg_by_load_pc = Wire(1)
     s.br_id_by_next_pc = Wire(BitstreamAddrType)
@@ -146,7 +157,6 @@ class STEP_ControllerRTL(Component):
     # Connect the read address register to the actual cfg_mem read address
     s.cfg_mem_metadata.raddr //= s.cfg_mem_raddr_reg
     s.active_bank = Wire(1)
-    s.load_bank = Wire(1)
     s.load_bank_reg = Wire(1)
     s.fabric_cfg_bank0_valid = Wire(1)
     s.fabric_cfg_bank1_valid = Wire(1)
@@ -165,7 +175,7 @@ class STEP_ControllerRTL(Component):
     s.cfg_packets_injection_done = Wire(1)
     s.load_inflight = Wire(1)
     s.meta_req_pending = Wire(1)
-    s.cfg_send_pending = Wire(1)
+    s.meta_resp_pending = Wire(1)
     s.prefetch_inflight = Wire(1)
     s.rf_done_pending = Wire(1)
     s.rf_wait_for_busy = Wire(1)
@@ -222,40 +232,38 @@ class STEP_ControllerRTL(Component):
     @update
     def shadow_read():
         # Use shadow entry zero as the default to keep the block translatable.
-        s.cfg_mem_shadow_rdata @= s.cfg_mem_shadow[0]
-        s.br_id_by_load_pc @= s.cfg_mem_shadow[0].br_id
-        s.end_cfg_by_load_pc @= s.cfg_mem_shadow[0].end_cfg
-        s.br_id_by_next_pc @= s.cfg_mem_shadow[0].br_id
-        s.end_cfg_by_next_pc @= s.cfg_mem_shadow[0].end_cfg
-        s.end_cfg_by_branch_reconverge @= s.cfg_mem_shadow[0].end_cfg
-        s.tile_load_by_load_pc @= s.cfg_mem_shadow[0].tile_load_count
-        s.tile_load_by_next_pc @= s.cfg_mem_shadow[0].tile_load_count
-        s.tile_load_by_branch_true_meta @= s.cfg_mem_shadow[0].tile_load_count
-        s.tile_load_by_branch_false_meta @= s.cfg_mem_shadow[0].tile_load_count
-        s.tile_load_by_branch_reconverge @= s.cfg_mem_shadow[0].tile_load_count
-        s.tile_load_by_loop_start_meta @= s.cfg_mem_shadow[0].tile_load_count
-        s.tile_load_by_loop_exit_meta @= s.cfg_mem_shadow[0].tile_load_count
+        s.br_id_by_load_pc @= s.cfg_ctrl_shadow[0].br_id
+        s.end_cfg_by_load_pc @= s.cfg_ctrl_shadow[0].end_cfg
+        s.br_id_by_next_pc @= s.cfg_ctrl_shadow[0].br_id
+        s.end_cfg_by_next_pc @= s.cfg_ctrl_shadow[0].end_cfg
+        s.end_cfg_by_branch_reconverge @= s.cfg_ctrl_shadow[0].end_cfg
+        s.tile_load_by_load_pc @= s.cfg_ctrl_shadow[0].tile_load_count
+        s.tile_load_by_next_pc @= s.cfg_ctrl_shadow[0].tile_load_count
+        s.tile_load_by_branch_true_meta @= s.cfg_ctrl_shadow[0].tile_load_count
+        s.tile_load_by_branch_false_meta @= s.cfg_ctrl_shadow[0].tile_load_count
+        s.tile_load_by_branch_reconverge @= s.cfg_ctrl_shadow[0].tile_load_count
+        s.tile_load_by_loop_start_meta @= s.cfg_ctrl_shadow[0].tile_load_count
+        s.tile_load_by_loop_exit_meta @= s.cfg_ctrl_shadow[0].tile_load_count
         for i in range(MAX_BITSTREAM_COUNT):
             if s.load_pc == BitstreamAddrType(i):
-                s.cfg_mem_shadow_rdata @= s.cfg_mem_shadow[i]
-                s.br_id_by_load_pc @= s.cfg_mem_shadow[i].br_id
-                s.end_cfg_by_load_pc @= s.cfg_mem_shadow[i].end_cfg
-                s.tile_load_by_load_pc @= s.cfg_mem_shadow[i].tile_load_count
+                s.br_id_by_load_pc @= s.cfg_ctrl_shadow[i].br_id
+                s.end_cfg_by_load_pc @= s.cfg_ctrl_shadow[i].end_cfg
+                s.tile_load_by_load_pc @= s.cfg_ctrl_shadow[i].tile_load_count
             if s.pc_next == BitstreamAddrType(i):
-                s.br_id_by_next_pc @= s.cfg_mem_shadow[i].br_id
-                s.end_cfg_by_next_pc @= s.cfg_mem_shadow[i].end_cfg
-                s.tile_load_by_next_pc @= s.cfg_mem_shadow[i].tile_load_count
+                s.br_id_by_next_pc @= s.cfg_ctrl_shadow[i].br_id
+                s.end_cfg_by_next_pc @= s.cfg_ctrl_shadow[i].end_cfg
+                s.tile_load_by_next_pc @= s.cfg_ctrl_shadow[i].tile_load_count
             if s.active_meta.branch_true_cfg_id == BitstreamAddrType(i):
-                s.tile_load_by_branch_true_meta @= s.cfg_mem_shadow[i].tile_load_count
+                s.tile_load_by_branch_true_meta @= s.cfg_ctrl_shadow[i].tile_load_count
             if s.active_meta.branch_false_cfg_id == BitstreamAddrType(i):
-                s.tile_load_by_branch_false_meta @= s.cfg_mem_shadow[i].tile_load_count
+                s.tile_load_by_branch_false_meta @= s.cfg_ctrl_shadow[i].tile_load_count
             if s.active_meta.reconverge_cfg_id == BitstreamAddrType(i):
-                s.end_cfg_by_branch_reconverge @= s.cfg_mem_shadow[i].end_cfg
-                s.tile_load_by_branch_reconverge @= s.cfg_mem_shadow[i].tile_load_count
+                s.end_cfg_by_branch_reconverge @= s.cfg_ctrl_shadow[i].end_cfg
+                s.tile_load_by_branch_reconverge @= s.cfg_ctrl_shadow[i].tile_load_count
             if s.active_meta.loop_start_cfg_id == BitstreamAddrType(i):
-                s.tile_load_by_loop_start_meta @= s.cfg_mem_shadow[i].tile_load_count
+                s.tile_load_by_loop_start_meta @= s.cfg_ctrl_shadow[i].tile_load_count
             if s.active_meta.loop_exit_cfg_id == BitstreamAddrType(i):
-                s.tile_load_by_loop_exit_meta @= s.cfg_mem_shadow[i].tile_load_count
+                s.tile_load_by_loop_exit_meta @= s.cfg_ctrl_shadow[i].tile_load_count
 
     @update
     def update_scan_chain():
@@ -290,12 +298,12 @@ class STEP_ControllerRTL(Component):
 
         for i in range(MAX_BITSTREAM_COUNT):
             if (
-                s.cfg_mem_shadow[i].branch_en
-                & (s.cfg_mem_shadow[i].cfg_id != s.load_meta.cfg_id)
-                & (s.cfg_mem_shadow[i].reconverge_cfg_id == s.load_meta.cfg_id)
+                s.cfg_ctrl_shadow[i].branch_en
+                & (s.cfg_ctrl_shadow[i].cfg_id != s.load_meta.cfg_id)
+                & (s.cfg_ctrl_shadow[i].reconverge_cfg_id == s.load_meta.cfg_id)
             ):
                 for r in range(num_pred_registers):
-                    if s.cfg_mem_shadow[i].pred_reg_id == PredRegType(r):
+                    if s.cfg_ctrl_shadow[i].pred_reg_id == PredRegType(r):
                         cfg_pred_reset_mask = cfg_pred_reset_mask | PredResetMaskType(1 << r)
 
         s.cfg_to_rf_msg.cmd @= s.load_meta.cmd
@@ -423,7 +431,6 @@ class STEP_ControllerRTL(Component):
             s.last_pc <<= 0
             s.last_cfg_id <<= BitstreamAddrType(0)
             s.active_bank <<= 0
-            s.load_bank <<= 0
             s.load_bank_reg <<= 0
             s.fabric_cfg_bank0_valid <<= Bits1(0)
             s.fabric_cfg_bank1_valid <<= Bits1(0)
@@ -440,7 +447,7 @@ class STEP_ControllerRTL(Component):
             s.cfg_packets_injection_done <<= 0
             s.load_inflight <<= 0
             s.meta_req_pending <<= 0
-            s.cfg_send_pending <<= 0
+            s.meta_resp_pending <<= 0
             s.prefetch_inflight <<= 0
             s.rf_done_pending <<= 0
             s.rf_wait_for_busy <<= 0
@@ -465,7 +472,7 @@ class STEP_ControllerRTL(Component):
             s.send_to_cpu_done_reg <<= 0
             s.cfg_bank_commit <<= 0
             for i in range(MAX_BITSTREAM_COUNT):
-                s.cfg_mem_shadow[i] <<= s.cfg_mem_shadow[i]
+                s.cfg_ctrl_shadow[i] <<= s.cfg_ctrl_shadow[i]
                 s.deferred_cfg[i] <<= BitstreamAddrType(0)
                 s.deferred_tile_count[i] <<= TileCountType(0)
                 s.deferred_thread_mask[i] <<= MaskType(0)
@@ -494,7 +501,15 @@ class STEP_ControllerRTL(Component):
                     s.cfg_mem_metadata.waddr <<= s.recv_from_cpu_metadata_pkt.msg.cfg_id
                     s.cfg_mem_metadata.wdata <<= s.recv_from_cpu_metadata_pkt.msg
                     s.cfg_mem_metadata.wen <<= 1
-                    s.cfg_mem_shadow[s.recv_from_cpu_metadata_pkt.msg.cfg_id] <<= s.recv_from_cpu_metadata_pkt.msg
+                    s.cfg_ctrl_shadow[s.recv_from_cpu_metadata_pkt.msg.cfg_id] <<= ControlShadowType(
+                        s.recv_from_cpu_metadata_pkt.msg.cfg_id,
+                        s.recv_from_cpu_metadata_pkt.msg.br_id,
+                        s.recv_from_cpu_metadata_pkt.msg.end_cfg,
+                        s.recv_from_cpu_metadata_pkt.msg.tile_load_count,
+                        s.recv_from_cpu_metadata_pkt.msg.branch_en,
+                        s.recv_from_cpu_metadata_pkt.msg.pred_reg_id,
+                        s.recv_from_cpu_metadata_pkt.msg.reconverge_cfg_id,
+                    )
                     if s.recv_from_cpu_metadata_pkt.msg.end_cfg:
                         s.last_cfg_id <<= s.recv_from_cpu_metadata_pkt.msg.cfg_id
                     if s.recv_from_cpu_metadata_pkt.msg.start_cfg:
@@ -506,7 +521,6 @@ class STEP_ControllerRTL(Component):
                         s.pc_done <<= 0
                         s.pc_req_trigger <<= 1
                         s.load_bank_reg <<= s.active_bank
-                        s.load_bank <<= s.active_bank
                         s.load_pc <<= s.pc
                         s.load_inflight <<= 1
                         s.cfg_packets_injected_count <<= TileCountType(0)
@@ -517,8 +531,8 @@ class STEP_ControllerRTL(Component):
                         s.fabric_cfg_load_done <<= 0
                         s.cfg_packets_injection_done <<= 0
                         s.load_meta_valid <<= 0
-                        s.cfg_send_pending <<= 0
                         s.meta_req_pending <<= 1
+                        s.meta_resp_pending <<= 0
                         s.cfg_mem_raddr_reg <<= s.pc
                         if s.load_tile_count == TileCountType(0):
                             s.load_inflight <<= 0
@@ -547,11 +561,14 @@ class STEP_ControllerRTL(Component):
                     s.fabric_cfg_load_done <<= 1
                     s.load_inflight <<= 0
 
-            # Metadata read response (BRAM raddr registered + sync read => two-cycle latency)
+            # Metadata read response (registered address + synchronous BRAM read).
             if s.meta_req_pending:
-                s.load_meta <<= s.cfg_mem_shadow_rdata
-                s.load_meta_valid <<= 1
                 s.meta_req_pending <<= 0
+                s.meta_resp_pending <<= 1
+            elif s.meta_resp_pending:
+                s.load_meta <<= s.cfg_mem_metadata.rdata
+                s.load_meta_valid <<= 1
+                s.meta_resp_pending <<= 0
 
             # Load ready handling: send cfg to RF/tokenizer and either stash or start
             if load_ready & send_rdy:
@@ -632,7 +649,7 @@ class STEP_ControllerRTL(Component):
             # reconciled with the new per-thread readiness tracking.
             if s.pc_started & ~s.pc_done & s.rf_active & ~s.last_pc \
                & ~s.prefetch_inflight & ~s.next_ready & ~s.load_inflight \
-               & ~s.meta_req_pending & ~s.rf_done_pending \
+               & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.rf_done_pending \
                & ~load_ready \
                & ~s.active_yield_to_deferred \
                & ~s.active_skip_next_end_cfg \
@@ -646,7 +663,6 @@ class STEP_ControllerRTL(Component):
                 else:
                     reuse_prefetch_bank = s.fabric_cfg_bank0_valid & (s.fabric_cfg_bank0_id == s.pc_next)
                 s.load_bank_reg <<= ~s.active_bank
-                s.load_bank <<= ~s.active_bank
                 s.load_pc <<= s.pc_next
                 s.cfg_packets_injected_count <<= TileCountType(0)
                 s.cfg_packets_applied_count <<= TileCountType(0)
@@ -655,8 +671,8 @@ class STEP_ControllerRTL(Component):
                 s.load_yield_to_deferred <<= Bits1(0)
                 s.load_skip_next_end_cfg <<= Bits1(0)
                 s.load_meta_valid <<= 0
-                s.cfg_send_pending <<= 0
                 s.meta_req_pending <<= 1
+                s.meta_resp_pending <<= 0
                 s.cfg_mem_raddr_reg <<= s.pc_next
                 if reuse_prefetch_bank:
                     s.load_tile_count <<= TileCountType(0)
@@ -678,7 +694,7 @@ class STEP_ControllerRTL(Component):
 
             # Completion / swap / branch / loop
             if (s.rf_done_pending | s.rf_cfg_issue_ready | s.next_ready) & ~s.rf_active & s.pc_started & ~s.pc_done \
-               & ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid \
+               & ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid \
                & ~s.rf_wait_for_busy & ~(load_ready & send_rdy):
                 if (s.last_pc | (s.pc == s.last_cfg_id)) & cfg_complete_event & ~s.rf_wait_for_busy \
                    & (s.deferred_depth == StackDepthType(0)):
@@ -698,10 +714,9 @@ class STEP_ControllerRTL(Component):
                         if next_mask[tid]:
                             next_count = next_count + LoopCountType(1)
                     s.deferred_depth <<= stack_idx
-                    if ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid:
+                    if ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid:
                         s.pc_req_trigger <<= 1
                         s.load_bank_reg <<= s.active_bank
-                        s.load_bank <<= s.active_bank
                         s.load_pc <<= next_cfg
                         s.load_tile_count <<= next_tile_count
                         s.pc <<= next_cfg
@@ -716,6 +731,7 @@ class STEP_ControllerRTL(Component):
                         s.cfg_packets_injection_done <<= 0
                         s.load_meta_valid <<= 0
                         s.meta_req_pending <<= 1
+                        s.meta_resp_pending <<= 0
                         s.cfg_mem_raddr_reg <<= next_cfg
                         s.prefetch_inflight <<= 0
                         s.rf_done_pending <<= 0
@@ -789,10 +805,9 @@ class STEP_ControllerRTL(Component):
                                         s.deferred_persistent[s.deferred_depth] <<= Bits1(1)
                                         s.deferred_origin_branch[s.deferred_depth] <<= s.active_meta.cfg_id
                                         s.deferred_depth <<= s.deferred_depth + StackDepthType(1)
-                                if ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid:
+                                if ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid:
                                     if next_cfg == s.active_meta.cfg_id:
                                         s.load_bank_reg <<= s.active_bank
-                                        s.load_bank <<= s.active_bank
                                         s.load_pc <<= next_cfg
                                         s.load_tile_count <<= TileCountType(0)
                                         s.load_inflight <<= 0
@@ -806,6 +821,7 @@ class STEP_ControllerRTL(Component):
                                         s.cfg_packets_injection_done <<= 1
                                         s.load_meta_valid <<= 0
                                         s.meta_req_pending <<= 1
+                                        s.meta_resp_pending <<= 0
                                         s.cfg_mem_raddr_reg <<= next_cfg
                                         s.pc <<= next_cfg
                                         s.prefetch_inflight <<= 0
@@ -823,7 +839,6 @@ class STEP_ControllerRTL(Component):
                                                 & (s.fabric_cfg_bank0_id == next_cfg)
                                             )
                                         s.load_bank_reg <<= ~s.active_bank
-                                        s.load_bank <<= ~s.active_bank
                                         s.load_pc <<= next_cfg
                                         s.cfg_packets_injected_count <<= TileCountType(0)
                                         s.cfg_packets_applied_count <<= TileCountType(0)
@@ -833,6 +848,7 @@ class STEP_ControllerRTL(Component):
                                         s.load_skip_next_end_cfg <<= Bits1(0)
                                         s.load_meta_valid <<= 0
                                         s.meta_req_pending <<= 1
+                                        s.meta_resp_pending <<= 0
                                         s.cfg_mem_raddr_reg <<= next_cfg
                                         s.prefetch_inflight <<= 0
                                         s.rf_done_pending <<= 0
@@ -855,10 +871,9 @@ class STEP_ControllerRTL(Component):
                             elif exit_count > LoopCountType(0):
                                 if merge_found & (merge_idx + StackDepthType(1) == s.deferred_depth):
                                     s.deferred_depth <<= merge_idx
-                                if ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid:
+                                if ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid:
                                     s.pc_req_trigger <<= 1
                                     s.load_bank_reg <<= s.active_bank
-                                    s.load_bank <<= s.active_bank
                                     s.load_pc <<= exit_cfg
                                     s.load_tile_count <<= exit_tile_count
                                     s.pc <<= exit_cfg
@@ -873,6 +888,7 @@ class STEP_ControllerRTL(Component):
                                     s.cfg_packets_injection_done <<= 0
                                     s.load_meta_valid <<= 0
                                     s.meta_req_pending <<= 1
+                                    s.meta_resp_pending <<= 0
                                     s.cfg_mem_raddr_reg <<= exit_cfg
                                     s.prefetch_inflight <<= 0
                                     s.rf_done_pending <<= 0
@@ -897,10 +913,9 @@ class STEP_ControllerRTL(Component):
                                 s.deferred_persistent[s.deferred_depth] <<= Bits1(0)
                                 s.deferred_origin_branch[s.deferred_depth] <<= s.active_meta.cfg_id
                                 s.deferred_depth <<= s.deferred_depth + StackDepthType(1)
-                            if ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid:
+                            if ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid:
                                 if next_cfg == s.active_meta.cfg_id:
                                     s.load_bank_reg <<= s.active_bank
-                                    s.load_bank <<= s.active_bank
                                     s.load_pc <<= next_cfg
                                     s.load_tile_count <<= TileCountType(0)
                                     s.pc <<= next_cfg
@@ -915,13 +930,13 @@ class STEP_ControllerRTL(Component):
                                     s.cfg_packets_injection_done <<= 1
                                     s.load_meta_valid <<= 0
                                     s.meta_req_pending <<= 1
+                                    s.meta_resp_pending <<= 0
                                     s.cfg_mem_raddr_reg <<= next_cfg
                                     s.prefetch_inflight <<= 0
                                     s.rf_done_pending <<= 0
                                 else:
                                     s.pc_req_trigger <<= 1
                                     s.load_bank_reg <<= s.active_bank
-                                    s.load_bank <<= s.active_bank
                                     s.load_pc <<= next_cfg
                                     s.load_tile_count <<= next_tile_count
                                     s.pc <<= next_cfg
@@ -936,6 +951,7 @@ class STEP_ControllerRTL(Component):
                                     s.cfg_packets_injection_done <<= 0
                                     s.load_meta_valid <<= 0
                                     s.meta_req_pending <<= 1
+                                    s.meta_resp_pending <<= 0
                                     s.cfg_mem_raddr_reg <<= next_cfg
                                     s.prefetch_inflight <<= 0
                                     s.rf_done_pending <<= 0
@@ -948,10 +964,9 @@ class STEP_ControllerRTL(Component):
                             next_tile_count = s.tile_load_by_branch_false_meta
                             next_mask = false_mask
                             next_count = false_count
-                            if ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid:
+                            if ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid:
                                 if next_cfg == s.active_meta.cfg_id:
                                     s.load_bank_reg <<= s.active_bank
-                                    s.load_bank <<= s.active_bank
                                     s.load_pc <<= next_cfg
                                     s.load_tile_count <<= TileCountType(0)
                                     s.pc <<= next_cfg
@@ -970,13 +985,13 @@ class STEP_ControllerRTL(Component):
                                     s.cfg_packets_injection_done <<= 1
                                     s.load_meta_valid <<= 0
                                     s.meta_req_pending <<= 1
+                                    s.meta_resp_pending <<= 0
                                     s.cfg_mem_raddr_reg <<= next_cfg
                                     s.prefetch_inflight <<= 0
                                     s.rf_done_pending <<= 0
                                 else:
                                     s.pc_req_trigger <<= 1
                                     s.load_bank_reg <<= s.active_bank
-                                    s.load_bank <<= s.active_bank
                                     s.load_pc <<= next_cfg
                                     s.load_tile_count <<= next_tile_count
                                     s.pc <<= next_cfg
@@ -995,6 +1010,7 @@ class STEP_ControllerRTL(Component):
                                     s.cfg_packets_injection_done <<= 0
                                     s.load_meta_valid <<= 0
                                     s.meta_req_pending <<= 1
+                                    s.meta_resp_pending <<= 0
                                     s.cfg_mem_raddr_reg <<= next_cfg
                                     s.prefetch_inflight <<= 0
                                     s.rf_done_pending <<= 0
@@ -1020,7 +1036,7 @@ class STEP_ControllerRTL(Component):
                     s.rf_done_pending <<= 0
                     s.rf_active <<= 1
                     s.rf_wait_for_busy <<= 1
-                elif ~(s.last_pc | (s.pc == s.last_cfg_id)) & ~s.load_inflight & ~s.meta_req_pending & ~s.load_meta_valid:
+                elif ~(s.last_pc | (s.pc == s.last_cfg_id)) & ~s.load_inflight & ~s.meta_req_pending & ~s.meta_resp_pending & ~s.load_meta_valid:
                     # Fallback: demand-load next config if prefetch not ready
                     if s.active_skip_next_end_cfg & s.end_cfg_by_next_pc:
                         s.pc_started <<= 0
@@ -1028,7 +1044,6 @@ class STEP_ControllerRTL(Component):
                         s.send_to_cpu_done_reg <<= 1
                         s.pc_req_trigger <<= 1
                         s.load_bank_reg <<= s.active_bank
-                        s.load_bank <<= s.active_bank
                         s.load_pc <<= s.pc_next
                         s.load_tile_count <<= s.tile_load_by_next_pc
                         s.load_inflight <<= 1
@@ -1041,6 +1056,7 @@ class STEP_ControllerRTL(Component):
                         s.fabric_cfg_load_done <<= 0
                         s.cfg_packets_injection_done <<= 0
                         s.load_meta_valid <<= 0
+                        s.meta_resp_pending <<= 0
                         s.next_ready <<= 0
                         s.prefetch_inflight <<= 0
                         s.rf_done_pending <<= 0
@@ -1051,7 +1067,6 @@ class STEP_ControllerRTL(Component):
                     else:
                         s.pc_req_trigger <<= 1
                         s.load_bank_reg <<= s.active_bank
-                        s.load_bank <<= s.active_bank
                         s.load_pc <<= s.pc_next
                         s.load_tile_count <<= s.tile_load_by_next_pc
                         s.load_inflight <<= 1
@@ -1064,6 +1079,7 @@ class STEP_ControllerRTL(Component):
                         s.cfg_packets_injection_done <<= 0
                         s.load_meta_valid <<= 0
                         s.meta_req_pending <<= 1
+                        s.meta_resp_pending <<= 0
                         s.cfg_mem_raddr_reg <<= s.pc_next
                         s.prefetch_inflight <<= 0
                         s.rf_done_pending <<= 0

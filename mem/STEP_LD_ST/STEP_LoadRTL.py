@@ -54,7 +54,8 @@ class STEP_LoadRTL( Component ):
                 s.tile_last_seen <<= 0
                 s.loads_in_tile <<= 0
             else:
-                if s.load_ifc.i_req & s.addr_queue.recv.rdy:
+                issue_fire = s.load_ifc.i_req & s.load_ifc.o_rdy
+                if issue_fire:
                     if s.enable & s.i_tile_pred:
                         s.loads_in_tile <<= s.loads_in_tile + 1
                     else:
@@ -71,7 +72,7 @@ class STEP_LoadRTL( Component ):
                 # Decrement loads_in_tile when data comes back and is consumed
                 if s.data_queue.send.val & s.data_queue.send.rdy:
                     # Check that we have not also tried to increment.
-                    if s.load_ifc.i_req & s.addr_queue.recv.rdy & s.i_tile_pred:
+                    if issue_fire & s.i_tile_pred:
                         s.loads_in_tile <<= s.loads_in_tile
                     else:
                         s.loads_in_tile <<= s.loads_in_tile - 1
@@ -79,13 +80,16 @@ class STEP_LoadRTL( Component ):
         # Input request handling - queue addresses when requests come in
         @update
         def input_handling():
-            # Queue the address when request is valid and queue has space
-            s.addr_queue.recv.val @= s.load_ifc.i_req & s.addr_queue.recv.rdy & s.i_tile_pred & s.enable
+            req_valid = s.load_ifc.i_req & s.i_tile_pred & s.enable
+            req_rdy = s.addr_queue.recv.rdy & s.bank_queue.recv.rdy
+            # Queue the address when the request is valid; readiness is
+            # reflected through the interface instead of feeding back into val.
+            s.addr_queue.recv.val @= req_valid
             s.addr_queue.recv.msg.addr @= trunc(s.load_ifc.i_addr, InternalAddrType)
             s.addr_queue.recv.msg.id @= s.issue_tid
-            s.bank_queue.recv.val @= s.load_ifc.i_req & s.addr_queue.recv.rdy & s.i_tile_pred & s.enable
+            s.bank_queue.recv.val @= req_valid
             s.bank_queue.recv.msg @= s.issue_bank
-            s.load_ifc.o_rdy @= s.addr_queue.recv.rdy
+            s.load_ifc.o_rdy @= req_rdy
 
         
         # Track outstanding requests

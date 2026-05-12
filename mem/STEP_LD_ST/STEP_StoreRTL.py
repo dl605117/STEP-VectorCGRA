@@ -59,7 +59,8 @@ class STEP_StoreRTL( Component ):
                 s.stores_in_tile <<= 0
                 s.resp_counter <<= 0
             else:
-                if s.store_ifc.i_req & s.store_queue.recv.rdy:
+                issue_fire = s.store_ifc.i_req & s.store_ifc.o_rdy
+                if issue_fire:
                     if s.enable & s.i_tile_pred:
                         s.stores_in_tile <<= s.stores_in_tile + 1
                     else:
@@ -77,7 +78,7 @@ class STEP_StoreRTL( Component ):
                 if s.axi.resp_valid & s.axi.resp_ready:
                     s.resp_counter <<= s.resp_counter + 1
                     # Check that we have not also tried to increment.
-                    if s.store_ifc.i_req & s.store_queue.recv.rdy & s.i_tile_pred:
+                    if issue_fire & s.i_tile_pred:
                         s.stores_in_tile <<= s.stores_in_tile
                     else:
                         s.stores_in_tile <<= s.stores_in_tile - 1
@@ -85,16 +86,18 @@ class STEP_StoreRTL( Component ):
         # Input request handling - queue store requests when they come in
         @update
         def input_handling():
-            handshake = s.store_ifc.i_req & s.store_queue.recv.rdy & s.i_tile_pred & s.enable
-            # Queue the request when valid and queue has space
-            s.store_queue.recv.val @= handshake
+            req_valid = s.store_ifc.i_req & s.i_tile_pred & s.enable
+            req_rdy = s.store_queue.recv.rdy & s.bank_queue.recv.rdy
+            # Queue the request when valid; readiness is exposed separately
+            # so we avoid a same-cycle val<-rdy dependency.
+            s.store_queue.recv.val @= req_valid
             s.store_queue.recv.msg.addr @= trunc(s.store_ifc.i_addr, InternalAddrType)
             s.store_queue.recv.msg.data @= s.store_ifc.i_data
             s.store_queue.recv.msg.id @= s.issue_tid
-            s.bank_queue.recv.val @= handshake
+            s.bank_queue.recv.val @= req_valid
             s.bank_queue.recv.msg @= s.issue_bank
 
-            s.store_ifc.o_rdy @= s.store_queue.recv.rdy
+            s.store_ifc.o_rdy @= req_rdy
 
             
         # Track outstanding transactions
