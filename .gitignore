@@ -47,3 +47,5 @@ vivado_vector_cgra/
 **/cgra_proj*/
 *.tcl
 **/vivado_output/
+MMIO_DMA_STEP_example.c
+DICEScoreboard.sv
