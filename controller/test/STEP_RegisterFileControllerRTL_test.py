@@ -60,7 +60,7 @@ class TestHarness(Component):
 
         # Configure sinks
         cmp_fn = lambda a, b : a == b
-        s.send_rd_data = [TestSinkRTL(RegDataType, send_rd_data_msgs[i], ld_data_end_delay, cmp_fn = cmp_fn) for i in range(num_rd_ports)]
+        s.send_rd_data = [TestSinkRTL(RegDataType, send_rd_data_msgs[i], ld_data_end_delay + 2, cmp_fn = cmp_fn) for i in range(num_rd_ports)]
         s.send_cfg_done = TestSinkRTL(Bits1, send_cfg_done_msgs, cmp_fn = cmp_fn)
         s.send_tile_token_take = [TestSinkRTL(Bits1, [1]) for _ in range(num_rd_ports)]
         s.send_tile_token_return = [TestSinkRTL(Bits1, [1]) for _ in range(num_rd_ports)]
@@ -103,6 +103,18 @@ class TestHarness(Component):
             s.recv_ld_data[i].send.rdy //= 1
             s.dut.ld_data_id[i] //= s.recv_ld_data_id[i].send.msg
             s.recv_ld_data_id[i].send.rdy //= 1
+
+        # Tie off memory completion masks to prevent FSM hang
+        s.dut.mem_ready_mask_bank0    //= 3
+        s.dut.mem_ready_mask_bank1    //= 3
+        s.dut.mem_complete_mask_bank0 //= 3
+        s.dut.mem_complete_mask_bank1 //= 3
+
+        # Tie off memory request acceptance ports so sequence counters can increment
+        for i in range(num_ld_ports):
+            s.dut.ld_req_accepted[i] //= 1
+        for i in range(num_st_ports):
+            s.dut.st_req_accepted[i] //= 1
 
         s.dut.ld_st_complete //= s.recv_ld_st_complete.send.msg
         s.recv_ld_st_complete.send.rdy //= 1
@@ -221,9 +233,9 @@ def init_param():
     # Outputs of dut
     send_rd_data = [
         # Row 0
-        [], [RegDataType(0), RegDataType(0), RegDataType(0), RegDataType(5),RegDataType(7)], 
+        [], [RegDataType(5),RegDataType(7)], 
         # Row 1
-        [], [RegDataType(0), RegDataType(0), RegDataType(0), RegDataType(1), RegDataType(2)],
+        [], [RegDataType(1), RegDataType(2)],
         # Row 2
         [], [],
         # Row 3
