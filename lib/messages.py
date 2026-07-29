@@ -7,7 +7,7 @@ Collection of messages definition.
 Convention: The fields/constructor arguments should appear in the order
             of [ payload_nbits, predicate_nbits ]
 
-Author : Cheng Tan
+Author : Cheng Tan(Modified by Claude)
   Date : Dec 3, 2019
 """
 from pymtl3 import *
@@ -392,6 +392,7 @@ def mk_cfg_metadata_pkt(
                         RegAddrType,
                         PredAddrType,
                         CfgTokenizerType,
+                        num_reduce_registers=16,
                         prefix="CfgMetadataPkt"):
     
     ThreadIdxType = mk_bits(clog2(MAX_THREAD_COUNT))
@@ -399,6 +400,8 @@ def mk_cfg_metadata_pkt(
     CfgIdType = mk_bits(clog2(MAX_BITSTREAM_COUNT))
     CmdType = mk_bits(max(1, NUM_CMDS))
     ConstImmType = mk_bits(min(8, DataType.nbits))
+    ReduceAddrType = mk_bits(clog2(num_reduce_registers))
+    ReduceOpType = mk_bits(6) # matches OperationType (Bits6) in lib/opt_type.py
 
     new_name = f"{prefix}_{num_rd_ports}_{num_wr_ports}"
 
@@ -430,6 +433,12 @@ def mk_cfg_metadata_pkt(
     field_dict['out_regs_val'] = [Bits1 for _ in range(num_wr_ports)]
     field_dict['out_pred_regs'] = [PredAddrType for _ in range(num_wr_ports)]
     field_dict['out_pred_regs_val'] = [Bits1 for _ in range(num_wr_ports)]
+    # reduce_en/reduce_op/reduce_addr configure the fabric-output reduction
+    # unit in STEP_RegisterFileControllerRTL.py. Not yet populated by any
+    # compiler/assembler outside this RTL repo.
+    field_dict['reduce_en'] = [Bits1 for _ in range(num_wr_ports)]
+    field_dict['reduce_op'] = ReduceOpType
+    field_dict['reduce_addr'] = [ReduceAddrType for _ in range(num_wr_ports)]
     field_dict['tokenizer_cfg'] = CfgTokenizerType
     field_dict['cfg_id'] = CfgIdType
     field_dict['br_id'] = CfgIdType
