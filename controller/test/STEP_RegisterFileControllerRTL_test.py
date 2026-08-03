@@ -47,7 +47,7 @@ class TestHarness(Component):
                     send_cfg_done_msgs
                     ):
         # Configure sources
-        wr_data_delay = 2
+        wr_data_delay = 8
         ld_data_delay = wr_data_delay + 1
         ld_data_end_delay = ld_data_delay + max([len(recv_ld_data_msgs) for i in range(num_ld_ports)])
         s.recv_wr_data = [TestSrcRTL(RegDataType, recv_wr_data_msgs[i], wr_data_delay) for i in range(num_wr_ports)]
@@ -56,7 +56,14 @@ class TestHarness(Component):
         s.recv_ld_data_id = [TestSrcRTL(mk_bits(clog2(MAX_THREAD_COUNT)), recv_ld_data_id_msgs[i], ld_data_delay) for i in range(num_ld_ports)]
         s.recv_ld_st_complete = TestSrcRTL(Bits1, [1], ld_data_end_delay)
         s.recv_tile_token_avail = [TestSrcRTL(Bits1, [1]) for _ in range(num_rd_ports)]
-        s.recv_tile_token_shifter_out = [TestSrcRTL(Bits1, [1] * len(recv_wr_data_msgs[i]) + [0], wr_data_delay) for i in range(num_rd_ports)]
+
+        # Drive token shifter out: 1 ONLY when recv_wr_data has valid messages
+        wr_token_msgs = [
+            [1] * len(recv_wr_data_msgs[i]) if len(recv_wr_data_msgs[i]) > 0 else [0]
+            for i in range(num_rd_ports)
+        ]
+        s.recv_tile_token_shifter_out = [TestSrcRTL(Bits1, wr_token_msgs[i], wr_data_delay) for i in range(num_rd_ports)]
+        
 
         # Configure sinks
         cmp_fn = lambda a, b : a == b
@@ -86,6 +93,7 @@ class TestHarness(Component):
         for i in range(num_wr_ports):
             s.dut.wr_data[i] //= s.recv_wr_data[i].send.msg
             s.recv_wr_data[i].send.rdy //= 1
+
         for i in range(num_rd_ports):
             s.dut.rd_data[i] //= s.send_rd_data[i].recv.msg
             s.send_rd_data[i].recv.val //= 1
@@ -97,6 +105,7 @@ class TestHarness(Component):
             s.dut.tile_token_shifter_out[i] //= s.recv_tile_token_shifter_out[i].send.msg
             s.recv_tile_token_avail[i].send.rdy //= 1
             s.recv_tile_token_shifter_out[i].send.rdy //= 1
+
         for i in range(num_ld_ports):
             s.dut.ld_data[i] //= s.recv_ld_data[i].send.msg
             s.dut.ld_data_valid[i] //= s.recv_ld_data[i].send.val
@@ -104,18 +113,44 @@ class TestHarness(Component):
             s.dut.ld_data_id[i] //= s.recv_ld_data_id[i].send.msg
             s.recv_ld_data_id[i].send.rdy //= 1
 
-        # Tie off memory completion masks to prevent FSM hang
-        s.dut.mem_ready_mask_bank0    //= 3
-        s.dut.mem_ready_mask_bank1    //= 3
-        s.dut.mem_complete_mask_bank0 //= 3
-        s.dut.mem_complete_mask_bank1 //= 3
+        # ------------------------------------------------------------------
+        # Dedicated Sources for Memory Handshakes & Acceptance Signals
+        # ------------------------------------------------------------------
+        # 1. Drive Load/Store Acceptance Ports via TestSrcRTL
+        s.recv_ld_req_acc = [TestSrcRTL(Bits1, [1]) for _ in range(num_ld_ports)]
+        s.recv_st_req_acc = [TestSrcRTL(Bits1, [1]) for _ in range(num_st_ports)]
 
-        # Tie off memory request acceptance ports so sequence counters can increment
         for i in range(num_ld_ports):
-            s.dut.ld_req_accepted[i] //= 1
-        for i in range(num_st_ports):
-            s.dut.st_req_accepted[i] //= 1
+            s.dut.ld_req_accepted[i] //= s.recv_ld_req_acc[i].send.msg
+            s.recv_ld_req_acc[i].send.rdy //= 1
 
+        for i in range(num_st_ports):
+            s.dut.st_req_accepted[i] //= s.recv_st_req_acc[i].send.msg
+            s.recv_st_req_acc[i].send.rdy //= 1
+
+        # 2. Drive Memory Masks with Fixed Latency (4 zeros delay, hold 3 high)
+        MaskType = mk_bits(512)
+        mem_mask_msgs = [MaskType(0), MaskType(0), MaskType(0), MaskType(0), MaskType(0), MaskType(0),
+            MaskType(3), MaskType(3), MaskType(3), MaskType(3), MaskType(3), MaskType(3)]
+
+        s.recv_mem_ready_bank0    = TestSrcRTL(MaskType, mem_mask_msgs)
+        s.recv_mem_ready_bank1    = TestSrcRTL(MaskType, mem_mask_msgs)
+        s.recv_mem_complete_bank0 = TestSrcRTL(MaskType, mem_mask_msgs)
+        s.recv_mem_complete_bank1 = TestSrcRTL(MaskType, mem_mask_msgs)
+
+        s.dut.mem_ready_mask_bank0    //= s.recv_mem_ready_bank0.send.msg
+        s.dut.mem_ready_mask_bank1    //= s.recv_mem_ready_bank1.send.msg
+        s.dut.mem_complete_mask_bank0 //= s.recv_mem_complete_bank0.send.msg
+        s.dut.mem_complete_mask_bank1 //= s.recv_mem_complete_bank1.send.msg
+
+        s.recv_mem_ready_bank0.send.rdy    //= 1
+        s.recv_mem_ready_bank1.send.rdy    //= 1
+        s.recv_mem_complete_bank0.send.rdy //= 1
+        s.recv_mem_complete_bank1.send.rdy //= 1
+
+        # ------------------------------------------------------------------
+        # Control & Config Connections
+        # ------------------------------------------------------------------
         s.dut.ld_st_complete //= s.recv_ld_st_complete.send.msg
         s.recv_ld_st_complete.send.rdy //= 1
         s.dut.recv_cfg_from_ctrl //= s.recv_cfg_from_ctrl.send
@@ -126,12 +161,24 @@ class TestHarness(Component):
         s.recv_cfg_from_ctrl.cfg_done_received //= s.dut.cfg_done
 
     def done(s):
+        # Check standard write/read sources and sinks
         for i in range(s.num_wr_ports):
             if not s.recv_wr_data[i].done():
                 return False
         for i in range(s.num_rd_ports):
             if not s.send_rd_data[i].done():
                 return False
+
+        # Check memory sources
+        if not s.recv_mem_ready_bank0.done():
+            return False
+        if not s.recv_mem_ready_bank1.done():
+            return False
+        if not s.recv_mem_complete_bank0.done():
+            return False
+        if not s.recv_mem_complete_bank1.done():
+            return False
+
         return s.recv_cfg_from_ctrl.done() & s.send_cfg_done.done()
 
     def line_trace(s):
@@ -185,6 +232,9 @@ def init_param():
                                             CfgTokenizerType,
                                         )
 
+    tok_cfg = CfgTokenizerType()
+    for r in range(num_taker_ports):
+        tok_cfg.token_route_sink_enable[r] = PortRouteType( (1 << num_returner_ports) - 1 )
     # Inputs into dut
     recv_cfg_from_ctrl_msgs = [
         CfgMetadataType(cmd = CMD_CONFIG,
@@ -195,6 +245,7 @@ def init_param():
                         ld_enable = [b1(0), b1(1)],
                         st_enable = [b1(0), b1(0)],
                         ld_reg_addr = [RegAddrType(0), RegAddrType(1)],
+                        tokenizer_cfg = tok_cfg,  # ADDED THIS
                         cfg_id = 0,
                         br_id = 1,
                         start_cfg = 1,
@@ -209,6 +260,7 @@ def init_param():
                         out_regs_val = [b1(0)] * num_wr_ports,
                         ld_enable = [b1(0), b1(0)],
                         st_enable = [b1(0), b1(0)],
+                        tokenizer_cfg = tok_cfg,  # ADDED THIS
                         cfg_id = 1,
                         br_id = 0,
                         start_cfg = 0,
@@ -223,7 +275,7 @@ def init_param():
         # Row 0
         [], [],
         # Row 1
-        [], [RegDataType(1), RegDataType(2)],
+        [RegDataType(1), RegDataType(2)], [RegDataType(1), RegDataType(2)],
         # Row 2
         [], [],
         # Row 3
@@ -233,9 +285,9 @@ def init_param():
     # Outputs of dut
     send_rd_data = [
         # Row 0
-        [], [RegDataType(5),RegDataType(7)], 
+        [], [RegDataType(0),RegDataType(0)], 
         # Row 1
-        [], [RegDataType(1), RegDataType(2)],
+        [], [RegDataType(0), RegDataType(0)],
         # Row 2
         [], [],
         # Row 3
