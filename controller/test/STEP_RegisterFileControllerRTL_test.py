@@ -198,22 +198,22 @@ class TestHarness(Component):
 
         @update
         def comb_scoreboard_events():
-            # Same one-hot event collection STEP_LoadStoreRTL performs.
+            # The same events STEP_LoadStoreRTL collects: a thread is
+            # dispatched when its load address is accepted and done when its
+            # data comes back. The RF controller only exposes the tids
+            # (ld_issue_tid_mask is internal), so widen them here. This is a
+            # plain shift rather than the tid loop STEP_LoadStoreRTL uses --
+            # that loop exists to stay translatable, and the harness is not
+            # translated.
             mem_dispatch_mask = MaskType(0)
             ld_done_mask = MaskType(0)
             for i in range(num_ld_ports):
-                ld_issue_onehot = MaskType(0)
-                ld_done_onehot = MaskType(0)
-                for tid in range(MAX_THREAD_COUNT):
-                    one_hot_tid = MaskType(1 << tid)
-                    if s.dut.ld_issue_tid[i] == TidType(tid):
-                        ld_issue_onehot = one_hot_tid
-                    if s.dut.ld_data_id[i] == TidType(tid):
-                        ld_done_onehot = one_hot_tid
                 if s.ld_req_accepted_r[i]:
-                    mem_dispatch_mask = mem_dispatch_mask | ld_issue_onehot
-                if s.dut.ld_data_valid[i]:
-                    ld_done_mask = ld_done_mask | ld_done_onehot
+                    mem_dispatch_mask = mem_dispatch_mask | \
+                        (MaskType(1) << zext(s.dut.ld_issue_tid[i], MAX_THREAD_COUNT))
+                if s.recv_ld_data[i].send.val:
+                    ld_done_mask = ld_done_mask | \
+                        (MaskType(1) << zext(s.recv_ld_data_id[i].send.msg, MAX_THREAD_COUNT))
             s.sb_mem_dispatch_mask @= mem_dispatch_mask
             s.sb_ld_done_mask @= ld_done_mask
 
