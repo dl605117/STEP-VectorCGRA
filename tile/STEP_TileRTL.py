@@ -188,73 +188,111 @@ class STEP_TileRTL(Component):
         
         @update
         def perform_alu_op():
+            a = s.crossbar.send_to_fu[0]
+            b = s.crossbar.send_to_fu[1]
+            c = s.crossbar.send_to_fu[2]
+            k = s.tile_bitstream.const_val
+            one = DataType(1)
+            add_rhs = b
+            sub_rhs = b
+            mul_rhs = b
+            eq_rhs = b
+            lls_rhs = b
+            cmp_result = DataType(0)
+            addsub_result = DataType(0)
+            mul_result = DataType(0)
+            logic_result = DataType(0)
+            shift_result = DataType(0)
+            special_result = DataType(0)
+
+            if (s.opt_type == OPT_ADD_CONST) | (s.opt_type == OPT_LD):
+                add_rhs = k
+            elif s.opt_type == OPT_INC:
+                add_rhs = one
+
+            if s.opt_type == OPT_SUB_CONST:
+                sub_rhs = k
+
+            if s.opt_type == OPT_MUL_CONST:
+                mul_rhs = k
+
+            if s.opt_type == OPT_EQ_CONST:
+                eq_rhs = k
+
+            if s.opt_type == OPT_LLS_CONST:
+                lls_rhs = k
+
+            if s.opt_type == OPT_LT:
+                cmp_result = zext(a < b, DataType.nbits)
+            elif s.opt_type == OPT_GTE:
+                cmp_result = zext(a >= b, DataType.nbits)
+            elif s.opt_type == OPT_GT:
+                cmp_result = zext(a > b, DataType.nbits)
+            elif s.opt_type == OPT_LTE:
+                cmp_result = zext(a <= b, DataType.nbits)
+            elif (s.opt_type == OPT_EQ) | (s.opt_type == OPT_EQ_CONST):
+                cmp_result = zext(a == eq_rhs, DataType.nbits)
+
+            if (s.opt_type == OPT_ADD) | (s.opt_type == OPT_ADD_CONST) | \
+               (s.opt_type == OPT_LD) | (s.opt_type == OPT_INC):
+                addsub_result = a + add_rhs
+            elif (s.opt_type == OPT_SUB) | (s.opt_type == OPT_SUB_CONST):
+                addsub_result = a - sub_rhs
+
+            if (s.opt_type == OPT_MUL) | (s.opt_type == OPT_MUL_CONST):
+                mul_result = a * mul_rhs
+            elif s.opt_type == OPT_MUL_ADD:
+                mul_result = a * b + c
+            elif s.opt_type == OPT_MUL_SUB:
+                mul_result = a * b - c
+
+            if s.opt_type == OPT_OR:
+                logic_result = a | b
+            elif s.opt_type == OPT_XOR:
+                logic_result = a ^ b
+            elif s.opt_type == OPT_AND:
+                logic_result = a & b
+            elif s.opt_type == OPT_NOT:
+                logic_result = ~a
+
+            if (s.opt_type == OPT_LLS) | (s.opt_type == OPT_LLS_CONST):
+                shift_result = a << lls_rhs
+            elif s.opt_type == OPT_LRS:
+                shift_result = a >> b
+
+            if s.opt_type == OPT_PAS:
+                special_result = k
+            elif s.opt_type == OPT_DIV:
+                if b == DataType(0):
+                    special_result = DataType(0)
+                else:
+                    special_result = a / b
+            elif s.opt_type == OPT_MOD:
+                if b == DataType(0):
+                    special_result = DataType(0)
+                else:
+                    special_result = a % b
+
             for i in range(num_fu_outports):
-                # Constant Passthrough
-                if s.opt_type == OPT_PAS:
-                    s.fu_out[i] @= s.tile_bitstream.const_val
-
-                # Comparators
-                elif s.opt_type == OPT_LT:
-                    s.fu_out[i] @= zext(s.crossbar.send_to_fu[0] < s.crossbar.send_to_fu[1], DataType.nbits)
-                elif s.opt_type == OPT_GTE:
-                    s.fu_out[i] @= zext(s.crossbar.send_to_fu[0] >= s.crossbar.send_to_fu[1], DataType.nbits)
-                elif s.opt_type == OPT_GT:
-                    s.fu_out[i] @= zext(s.crossbar.send_to_fu[0] > s.crossbar.send_to_fu[1], DataType.nbits)
-                elif s.opt_type == OPT_LTE:
-                    s.fu_out[i] @= zext(s.crossbar.send_to_fu[0] <= s.crossbar.send_to_fu[1], DataType.nbits)
-                elif s.opt_type == OPT_EQ:
-                    s.fu_out[i] @= zext(s.crossbar.send_to_fu[0] == s.crossbar.send_to_fu[1], DataType.nbits)
-                
-                # Constant Ops
-                elif s.opt_type == OPT_ADD_CONST:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] + s.tile_bitstream.const_val
-                elif s.opt_type == OPT_SUB_CONST:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] - s.tile_bitstream.const_val
-                elif s.opt_type == OPT_EQ_CONST:
-                    s.fu_out[i] @= zext(s.crossbar.send_to_fu[0] == s.tile_bitstream.const_val, DataType.nbits)
-                elif s.opt_type == OPT_MUL_CONST:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] * s.tile_bitstream.const_val
-                elif s.opt_type == OPT_LD:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] + s.tile_bitstream.const_val # Add Base address to Mem Unit
-
-                # 2 ops
-                elif s.opt_type == OPT_ADD:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] + s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_DIV:
-                    if s.crossbar.send_to_fu[1] == DataType(0):
-                        s.fu_out[i] @= DataType(0)
-                    else:
-                        s.fu_out[i] @= s.crossbar.send_to_fu[0] / s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_SUB:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] - s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_MUL:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] * s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_MOD:
-                    if s.crossbar.send_to_fu[1] == DataType(0):
-                        s.fu_out[i] @= DataType(0)
-                    else:
-                        s.fu_out[i] @= s.crossbar.send_to_fu[0] % s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_INC:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] + 1
-                elif s.opt_type == OPT_OR:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] | s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_XOR:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] ^ s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_AND:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] & s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_NOT:
-                    s.fu_out[i] @= ~s.crossbar.send_to_fu[0]
-                elif s.opt_type == OPT_LLS:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] << s.crossbar.send_to_fu[1]
-                elif s.opt_type == OPT_LLS_CONST:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] << s.tile_bitstream.const_val
-                elif s.opt_type == OPT_LRS:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] >> s.crossbar.send_to_fu[1]
-                
-                # 3 ops
-                elif s.opt_type == OPT_MUL_ADD:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] * s.crossbar.send_to_fu[1] + s.crossbar.send_to_fu[2]
-                elif s.opt_type == OPT_MUL_SUB:
-                    s.fu_out[i] @= s.crossbar.send_to_fu[0] * s.crossbar.send_to_fu[1] - s.crossbar.send_to_fu[2]
+                if (s.opt_type == OPT_LT) | (s.opt_type == OPT_GTE) | \
+                   (s.opt_type == OPT_GT) | (s.opt_type == OPT_LTE) | \
+                   (s.opt_type == OPT_EQ) | (s.opt_type == OPT_EQ_CONST):
+                    s.fu_out[i] @= cmp_result
+                elif (s.opt_type == OPT_ADD) | (s.opt_type == OPT_ADD_CONST) | \
+                     (s.opt_type == OPT_LD) | (s.opt_type == OPT_INC) | \
+                     (s.opt_type == OPT_SUB) | (s.opt_type == OPT_SUB_CONST):
+                    s.fu_out[i] @= addsub_result
+                elif (s.opt_type == OPT_MUL) | (s.opt_type == OPT_MUL_CONST) | \
+                     (s.opt_type == OPT_MUL_ADD) | (s.opt_type == OPT_MUL_SUB):
+                    s.fu_out[i] @= mul_result
+                elif (s.opt_type == OPT_OR) | (s.opt_type == OPT_XOR) | \
+                     (s.opt_type == OPT_AND) | (s.opt_type == OPT_NOT):
+                    s.fu_out[i] @= logic_result
+                elif (s.opt_type == OPT_LLS) | (s.opt_type == OPT_LLS_CONST) | \
+                     (s.opt_type == OPT_LRS):
+                    s.fu_out[i] @= shift_result
+                elif (s.opt_type == OPT_PAS) | (s.opt_type == OPT_DIV) | \
+                     (s.opt_type == OPT_MOD):
+                    s.fu_out[i] @= special_result
                 else:
                     s.fu_out[i] @= DataType(0)
