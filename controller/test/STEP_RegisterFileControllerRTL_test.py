@@ -9,7 +9,7 @@ loop with inside STEP_CgraRTL -- the tokenizer and the load/store
 scoreboard -- and drives them the same way STEP_CgraRTL does, so the token
 and memory handshakes are the real ones rather than a model.
 
-Author : Cheng Tan
+Author : Cheng Tan (with AI-assisted additions, see PR)
   Date : Dec 15, 2024
 '''
 from pymtl3.passes.backends.verilog import (VerilogVerilatorImportPass)
@@ -132,6 +132,10 @@ class TestHarness(Component):
             s.dut.tile_token_return[i] //= s.tokenizer.token_return[i]
             s.dut.tile_token_return[i] //= s.send_tile_token_return[i].recv.msg
             s.dut.tile_token_return[i] //= s.send_tile_token_return[i].recv.val
+            # Tied permissively true: this test does not exercise
+            # per-thread predicated writes/reduction, but the fabric
+            # reduction unit now reads this port and needs a driver.
+            s.dut.recv_pred_port[i] //= 1
         # Load/store sinks are not exercised here.
         for i in range(num_wr_ports, num_returner_ports):
             s.tokenizer.token_return[i] //= 0

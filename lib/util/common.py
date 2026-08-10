@@ -2,7 +2,7 @@
 =========================================================================
 common.py
 =========================================================================
-Author : Cheng Tan
+Author : Cheng Tan (with AI-assisted additions, see PR)
   Date : Dec 24, 2022
 """
 
@@ -39,6 +39,9 @@ MAX_PRED_MATH = 4
 
 # Constant for maximum bitstream count
 MAX_BITSTREAM_COUNT = 30
+
+# Number of entries in the fabric-output reduction unit's local register file
+NUM_REDUCE_REGISTERS = 16
 
 # Axi Address Bitwidth
 AXI_ADDR_BITWIDTH = 44

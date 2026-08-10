@@ -7,7 +7,7 @@ Collection of messages definition.
 Convention: The fields/constructor arguments should appear in the order
             of [ payload_nbits, predicate_nbits ]
 
-Author : Cheng Tan(Modified by Claude)
+Author : Cheng Tan (with AI-assisted additions, see PR)
   Date : Dec 3, 2019
 """
 from pymtl3 import *
@@ -392,7 +392,6 @@ def mk_cfg_metadata_pkt(
                         RegAddrType,
                         PredAddrType,
                         CfgTokenizerType,
-                        num_reduce_registers=16,
                         prefix="CfgMetadataPkt"):
     
     ThreadIdxType = mk_bits(clog2(MAX_THREAD_COUNT))
@@ -400,7 +399,7 @@ def mk_cfg_metadata_pkt(
     CfgIdType = mk_bits(clog2(MAX_BITSTREAM_COUNT))
     CmdType = mk_bits(max(1, NUM_CMDS))
     ConstImmType = mk_bits(min(8, DataType.nbits))
-    ReduceAddrType = mk_bits(clog2(num_reduce_registers))
+    ReduceAddrType = mk_bits(clog2(NUM_REDUCE_REGISTERS))
     ReduceOpType = mk_bits(6) # matches OperationType (Bits6) in lib/opt_type.py
 
     new_name = f"{prefix}_{num_rd_ports}_{num_wr_ports}"
@@ -429,13 +428,20 @@ def mk_cfg_metadata_pkt(
     field_dict['in_pred_inv'] = [Bits1 for _ in range(num_rd_ports)]
     field_dict['in_const_vals'] = [ConstImmType for _ in range(num_rd_ports)]
     field_dict['in_pred_reset_const_en'] = [Bits1 for _ in range(num_rd_ports)]
+    # Selects a rd_port to source its data from the fabric reduction unit's
+    # local register file (see STEP_FabricReduceUnitRTL.py) instead of the
+    # main register file.
+    field_dict['reduce_rd_en'] = [Bits1 for _ in range(num_rd_ports)]
+    field_dict['reduce_rd_addr'] = [ReduceAddrType for _ in range(num_rd_ports)]
     field_dict['out_regs'] = [RegAddrType for _ in range(num_wr_ports)]
     field_dict['out_regs_val'] = [Bits1 for _ in range(num_wr_ports)]
     field_dict['out_pred_regs'] = [PredAddrType for _ in range(num_wr_ports)]
     field_dict['out_pred_regs_val'] = [Bits1 for _ in range(num_wr_ports)]
-    # reduce_en/reduce_op/reduce_addr configure the fabric-output reduction
-    # unit in STEP_RegisterFileControllerRTL.py. Not yet populated by any
-    # compiler/assembler outside this RTL repo.
+    # Configures the fabric-output reduction unit (see
+    # STEP_FabricReduceUnitRTL.py): reduce_en/reduce_addr select, per
+    # wr_port, whether that port's fabric data feeds the reduction unit and
+    # which local register it accumulates into; reduce_op (shared across
+    # the whole config) selects OPT_VEC_REDUCE_ADD / OPT_VEC_REDUCE_MUL.
     field_dict['reduce_en'] = [Bits1 for _ in range(num_wr_ports)]
     field_dict['reduce_op'] = ReduceOpType
     field_dict['reduce_addr'] = [ReduceAddrType for _ in range(num_wr_ports)]

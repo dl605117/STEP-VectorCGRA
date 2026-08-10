@@ -3,134 +3,10 @@ from ..lib.basic.val_rdy.ifcs import RecvIfcRTL, SendIfcRTL
 from pymtl3.stdlib.primitive import Reg
 from ..mem.register_cluster.STEP_RegisterFileRTL import STEP_RegisterFileRTL
 from ..mem.register_cluster.STEP_RegisterFileFullBankRTL import STEP_RegisterFileFullBankRTL
+from .STEP_FabricReduceUnitRTL import STEP_FabricReduceUnitRTL
 from ..lib.messages import *
 from ..lib.opt_type import *
 from ..lib.util.common import *
-
-
-# ===========================================================================
-# STEP_FabricReduceUnitRTL
-# ===========================================================================
-# Reduces fabric write-back data across all threads of a configuration into
-# a small local register file, instead of writing each thread's result into
-# a separate main-register-file entry. Taps the same per-wr_port fabric
-# data (s.wr_data[i]) and thread-commit handshake (wr_commit_valid[i] /
-# wr_commit_tid[i]) already used to write the main register file.
-#
-# Author : AI-assisted
-class STEP_FabricReduceUnitRTL( Component ):
-
-  def construct( s,
-                 RegDataType,
-                 num_wr_ports,
-                 num_reduce_registers = 16,
-               ):
-
-    ReduceAddrType = mk_bits( clog2( num_reduce_registers ) )
-    ThreadIdType   = mk_bits( clog2( MAX_THREAD_COUNT ) )
-    MaxThreadType  = mk_bits( clog2( MAX_THREAD_COUNT + 1 ) )
-    OpType         = mk_bits( 6 )  # matches OperationType (Bits6) in lib/opt_type.py
-
-    # -----------------------------------------------------------------
-    # Interface
-    # -----------------------------------------------------------------
-
-    # Per-wr_port data tap (same value as s.wr_data[i] in the parent).
-    s.recv_data  = [ InPort( RegDataType ) for _ in range( num_wr_ports ) ]
-    # Per-wr_port valid pulse, driven by the parent's wr_commit_valid[i].
-    s.recv_valid = [ InPort( Bits1 )       for _ in range( num_wr_ports ) ]
-    # Thread id for this commit (parent's wr_commit_tid[i]).
-    s.recv_tid   = [ InPort( ThreadIdType ) for _ in range( num_wr_ports ) ]
-
-    # Per-wr_port: is this port feeding the reducer, and which of the
-    # num_reduce_registers entries it accumulates into. One shared opcode
-    # per config (OPT_VEC_REDUCE_ADD / _MUL from lib/opt_type.py).
-    s.cfg_reduce_en   = [ InPort( Bits1 )         for _ in range( num_wr_ports ) ]
-    s.cfg_reduce_addr = [ InPort( ReduceAddrType ) for _ in range( num_wr_ports ) ]
-    s.cfg_reduce_op   = InPort( OpType )
-    s.cfg_expected_count = InPort( MaxThreadType )
-
-    # Pulsed for one cycle when a new config becomes active; clears the
-    # accumulator(s) that config claims before accumulation begins.
-    s.cfg_start = InPort( Bits1 )
-
-    # Local result register file + external readback.
-    s.rd_data = [ OutPort( RegDataType ) for _ in range( num_reduce_registers ) ]
-    # High for one cycle once entry r has received cfg_expected_count
-    # contributions this config.
-    s.reduce_complete = [ OutPort( Bits1 ) for _ in range( num_reduce_registers ) ]
-
-    # -----------------------------------------------------------------
-    # Storage
-    # -----------------------------------------------------------------
-    s.reduce_regfile    = [ Wire( RegDataType )  for _ in range( num_reduce_registers ) ]
-    s.reduce_seen_count = [ Wire( MaxThreadType ) for _ in range( num_reduce_registers ) ]
-
-    for r in range( num_reduce_registers ):
-      s.rd_data[r] //= s.reduce_regfile[r]
-
-    # Destination addresses the new config claims; used on cfg_start to
-    # selectively clear those entries.
-    s.reduce_addr_claimed = [ Wire( Bits1 ) for _ in range( num_reduce_registers ) ]
-
-    @update
-    def comb_reduce_addr_claimed():
-      for r in range( num_reduce_registers ):
-        claimed = Bits1( 0 )
-        for i in range( num_wr_ports ):
-          if s.cfg_reduce_en[i] & ( s.cfg_reduce_addr[i] == ReduceAddrType( r ) ):
-            claimed = Bits1( 1 )
-        s.reduce_addr_claimed[r] @= claimed
-
-    @update
-    def comb_reduce_complete():
-      for r in range( num_reduce_registers ):
-        s.reduce_complete[r] @= Bits1(
-            ( s.reduce_seen_count[r] == s.cfg_expected_count ) &
-            ( s.cfg_expected_count > MaxThreadType( 0 ) )
-        )
-
-    @update_ff
-    def reduce_ff():
-      if s.reset:
-        for r in range( num_reduce_registers ):
-          s.reduce_regfile[r]    <<= RegDataType( 0 )
-          s.reduce_seen_count[r] <<= MaxThreadType( 0 )
-      else:
-        for r in range( num_reduce_registers ):
-          if s.cfg_start & s.reduce_addr_claimed[r]:
-            # New config claims this entry -- start its accumulation fresh.
-            s.reduce_regfile[r]    <<= RegDataType( 0 )
-            s.reduce_seen_count[r] <<= MaxThreadType( 0 )
-          else:
-            # Accumulate every wr_port that committed a value for this
-            # entry THIS cycle. Using local Python accumulator variables
-            # (rather than repeatedly writing the signal) so that
-            # multiple wr_ports hitting the same reduce_addr in the same
-            # cycle are all folded in, instead of the usual
-            # last-write-wins behavior of an unrolled loop.
-            cur_val = s.reduce_regfile[r]
-            cur_cnt = s.reduce_seen_count[r]
-            for i in range( num_wr_ports ):
-              if s.recv_valid[i] & s.cfg_reduce_en[i] & \
-                 ( s.cfg_reduce_addr[i] == ReduceAddrType( r ) ) & \
-                 ( cur_cnt < s.cfg_expected_count ):
-                if cur_cnt == MaxThreadType( 0 ):
-                  cur_val = s.recv_data[i]
-                elif s.cfg_reduce_op == OPT_VEC_REDUCE_MUL:
-                  cur_val = cur_val * s.recv_data[i]
-                else:
-                  # Default / OPT_VEC_REDUCE_ADD.
-                  cur_val = cur_val + s.recv_data[i]
-                cur_cnt = cur_cnt + MaxThreadType( 1 )
-            s.reduce_regfile[r]    <<= cur_val
-            s.reduce_seen_count[r] <<= cur_cnt
-
-  def line_trace( s ):
-    return "reduce(" + "|".join(
-        str( int( s.reduce_regfile[r] ) ) for r in range( len( s.reduce_regfile ) )
-    ) + ")"
-
 
 class STEP_RegisterFileControllerRTL( Component ):
     def construct(s,
@@ -148,8 +24,6 @@ class STEP_RegisterFileControllerRTL( Component ):
                     num_pred_registers = 16,
                     enable_double_buffering = False,
                     debug = True,
-                    # Size of the fabric reduction unit's local register file.
-                    num_reduce_registers = 16,
                     ):
 
         def _diag_signal(Type):
@@ -171,11 +45,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                 num_wr_ports=num_wr_ports + num_ld_ports,
                 num_registers_per_reg_bank=MAX_THREAD_COUNT)
 
-        # Fabric-output reduction submodule (see STEP_FabricReduceUnitRTL above).
-        s.fabric_reduce_unit = STEP_FabricReduceUnitRTL(
-                RegDataType,
-                num_wr_ports,
-                num_reduce_registers=num_reduce_registers)
+        # Fabric-output reduction submodule; see STEP_FabricReduceUnitRTL.py.
+        s.fabric_reduce_unit = STEP_FabricReduceUnitRTL(RegDataType, num_wr_ports)
 
         # External ifcs
         s.recv_cfg_from_ctrl = RecvIfcRTL( CfgMetadataType )   # from main ctrl
@@ -184,9 +55,12 @@ class STEP_RegisterFileControllerRTL( Component ):
         s.rd_data            = [ OutPort(RegDataType) for _ in range(num_rd_ports) ]
         s.wr_data            = [ InPort(RegDataType) for _ in range(num_wr_ports) ]
         s.cfg_done           = OutPort( 1 )                # level-true when RUN complete this cycle
-        # Fabric reduction unit results, exposed externally.
-        s.reduce_rd_data     = [ OutPort(RegDataType) for _ in range(num_reduce_registers) ]
-        s.reduce_complete    = [ OutPort(Bits1)       for _ in range(num_reduce_registers) ]
+        # Direct (unpipelined) debug view of the reduction unit's local
+        # register file and per-entry completion. The primary way results
+        # leave this unit is via the normal s.rd_data[i] ports when a
+        # rd_port is configured with reduce_rd_en (see comb_output_data).
+        s.reduce_rd_data     = [ OutPort(RegDataType) for _ in range(NUM_REDUCE_REGISTERS) ]
+        s.reduce_complete    = [ OutPort(Bits1)       for _ in range(NUM_REDUCE_REGISTERS) ]
         s.cfg_ready_for_next = _diag_signal( Bits1 )
         s.dep_mode_out       = OutPort( 1 )
         s.recv_pred_port = [ InPort(1) for _ in range(num_wr_ports)]
@@ -345,7 +219,7 @@ class STEP_RegisterFileControllerRTL( Component ):
         ThreadIdType         = mk_bits( clog2( MAX_THREAD_COUNT ) )
         MaxThreadType        = mk_bits( clog2( MAX_THREAD_COUNT + 1 ) )
         ConstImmType = mk_bits(min(8, RegDataType.nbits))
-        ReduceAddrType = mk_bits(clog2(num_reduce_registers))
+        ReduceAddrType = mk_bits(clog2(NUM_REDUCE_REGISTERS))
         ReduceOpType = mk_bits(6) # matches OperationType (Bits6) in lib/opt_type.py
         s.recv_cfg_thread_mask_resolved = Wire(MaskType)
         s.recv_cfg_thread_count_resolved = Wire(MaxThreadType)
@@ -387,10 +261,16 @@ class STEP_RegisterFileControllerRTL( Component ):
         s.rd_addr_cfg    = [ Wire(RegAddrType) for _ in range(num_rd_ports) ]
         s.rd_addr_valcfg = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
         s.tid_enabled    = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
+        # Read side of the fabric reduction unit: selects a rd_port to
+        # source its data from the reduction unit's local register file
+        # (address reduce_rd_addr) instead of the main register file.
+        s.reduce_rd_en   = [ Wire(Bits1)          for _ in range(num_rd_ports) ]
+        s.reduce_rd_addr = [ Wire(ReduceAddrType) for _ in range(num_rd_ports) ]
         s.wr_addr_cfg    = [ Wire(RegAddrType) for _ in range(num_wr_ports) ]
         s.wr_addr_valcfg = [ Wire(Bits1)       for _ in range(num_wr_ports) ]
         s.pred_wr_valcfg = [ Wire(Bits1)       for _ in range(num_wr_ports) ]
-        s.reduce_en = [ Wire(Bits1) for _ in range(num_wr_ports) ] # per-wr_port fabric-reduce enable
+        # Write side of the fabric reduction unit: per-wr_port enable.
+        s.reduce_en = [ Wire(Bits1) for _ in range(num_wr_ports) ]
         s.expected_count = Wire( MaxThreadType )
         s.active_thread_min = Wire(MaxThreadType)
         s.active_thread_max = Wire(MaxThreadType)
@@ -398,6 +278,10 @@ class STEP_RegisterFileControllerRTL( Component ):
         s.rd_addr_cfg_bank1    = [ Wire(RegAddrType) for _ in range(num_rd_ports) ]
         s.rd_addr_valcfg_bank0 = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
         s.rd_addr_valcfg_bank1 = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
+        s.reduce_rd_en_bank0   = [ Wire(Bits1)          for _ in range(num_rd_ports) ]
+        s.reduce_rd_en_bank1   = [ Wire(Bits1)          for _ in range(num_rd_ports) ]
+        s.reduce_rd_addr_bank0 = [ Wire(ReduceAddrType) for _ in range(num_rd_ports) ]
+        s.reduce_rd_addr_bank1 = [ Wire(ReduceAddrType) for _ in range(num_rd_ports) ]
         s.tid_enabled_bank0    = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
         s.tid_enabled_bank1    = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
         s.rd_pred_addr_cfg_bank0 = [ Wire(PredAddrType) for _ in range(num_rd_ports) ]
@@ -529,6 +413,13 @@ class STEP_RegisterFileControllerRTL( Component ):
         s.wr_addr_valcfg_n = [ _diag_signal(Bits1) for _ in range(num_wr_ports) ]
         s.rd_addr_cfg_n    = [ _diag_signal(RegAddrType) for _ in range(num_rd_ports) ]
         s.wr_addr_cfg_n    = [ _diag_signal(RegAddrType) for _ in range(num_wr_ports) ]
+        # Next-value pipeline for the reduction unit's config, mirroring
+        # wr_addr_valcfg_n/rd_addr_valcfg_n exactly (same direct-IDLE-path
+        # commit mechanism).
+        s.reduce_en_n      = [ _diag_signal(Bits1)          for _ in range(num_wr_ports) ]
+        s.reduce_addr_n    = [ _diag_signal(ReduceAddrType) for _ in range(num_wr_ports) ]
+        s.reduce_rd_en_n   = [ _diag_signal(Bits1)          for _ in range(num_rd_ports) ]
+        s.reduce_rd_addr_n = [ _diag_signal(ReduceAddrType) for _ in range(num_rd_ports) ]
         s.tid_enabled_n    = [ Wire(Bits1)       for _ in range(num_rd_ports) ]
         s.rd_pred_addr_cfg = [ Wire(PredAddrType) for _ in range(num_rd_ports) ]
         s.rd_pred_en = [ Wire(Bits1) for _ in range(num_rd_ports) ]
@@ -675,7 +566,7 @@ class STEP_RegisterFileControllerRTL( Component ):
                     pred_true = ~pred_true
                 s.rd_predicate_true[i] @= pred_true
                 s.rd_predicate_use_reg[i] @= s.rd_pred_en[i] & pred_true & ~(force_const & reset_const_en)
-                s.rd_port_active[i] @= s.rd_addr_valcfg[i] | s.rd_pred_en[i]
+                s.rd_port_active[i] @= s.rd_addr_valcfg[i] | s.rd_pred_en[i] | s.reduce_rd_en[i]
 
 
         # Enable wires for read and write ports
@@ -722,8 +613,9 @@ class STEP_RegisterFileControllerRTL( Component ):
                     mapped_idx = ((i & 0x1) << 1) + ((i & 0x2) >> 1)
                 # reduce_en[i] is tracked like wr_addr_valcfg[i], so its
                 # commits go through the same token/tid-fifo machinery and
-                # the existing wr_seen_mask/cfg_writeback_complete scoreboard
-                # automatically waits for the reduction to finish.
+                # s.wr_count[i] (used below to feed the reduce unit and to
+                # compute reduce_complete) advances/resets exactly like it
+                # already does for a normal write port.
                 wr_track = s.wr_addr_valcfg[i] | s.pred_wr_valcfg[i] | s.reduce_en[i]
                 wr_token = Bits1(0)
                 if s.wr_addr_valcfg[i]:
@@ -780,6 +672,13 @@ class STEP_RegisterFileControllerRTL( Component ):
                                 # paired east read, while pure tid-only configs
                                 # still get the synthetic thread id path.
                                 s.rd_data_next[i] @= s.register_file.rd_data[i + 2] + RegDataType(1)
+                elif s.reduce_rd_en[i]:
+                    # Source this rd_port's data from the fabric
+                    # reduction unit's local register file instead of the
+                    # main register file.
+                    for r in range(NUM_REDUCE_REGISTERS):
+                        if s.reduce_rd_addr[i] == ReduceAddrType(r):
+                            s.rd_data_next[i] @= s.fabric_reduce_unit.rd_data[r]
                 else:
                     s.rd_data_next[i] @= s.register_file.rd_data[i]
 
@@ -858,6 +757,10 @@ class STEP_RegisterFileControllerRTL( Component ):
                     s.rd_addr_cfg_bank1[i] <<= RegAddrType(0)
                     s.rd_addr_valcfg_bank0[i] <<= Bits1(0)
                     s.rd_addr_valcfg_bank1[i] <<= Bits1(0)
+                    s.reduce_rd_en_bank0[i] <<= Bits1(0)
+                    s.reduce_rd_en_bank1[i] <<= Bits1(0)
+                    s.reduce_rd_addr_bank0[i] <<= ReduceAddrType(0)
+                    s.reduce_rd_addr_bank1[i] <<= ReduceAddrType(0)
                     s.tid_enabled_bank0[i] <<= Bits1(0)
                     s.tid_enabled_bank1[i] <<= Bits1(0)
                     s.rd_pred_addr_cfg_bank0[i] <<= PredAddrType(0)
@@ -910,7 +813,7 @@ class STEP_RegisterFileControllerRTL( Component ):
                         any_data_write = any_data_write | s.recv_cfg_from_ctrl.msg.out_regs_val[i]
                         any_pred_write = any_pred_write | s.recv_cfg_from_ctrl.msg.out_pred_regs_val[i]
                     for i in range(num_rd_ports):
-                        any_input_read = any_input_read | s.recv_cfg_from_ctrl.msg.in_regs_val[i] | s.recv_cfg_from_ctrl.msg.in_pred_en[i]
+                        any_input_read = any_input_read | s.recv_cfg_from_ctrl.msg.in_regs_val[i] | s.recv_cfg_from_ctrl.msg.in_pred_en[i] | s.recv_cfg_from_ctrl.msg.reduce_rd_en[i]
                     cfg_is_const_store = cfg_is_const_store & any_store & ~any_load & ~any_data_write & ~any_pred_write & ~any_input_read
                     if s.cfg_load_sel_w == Bits1(0):
                         s.expected_count_bank0 <<= s.recv_cfg_thread_count_resolved
@@ -925,6 +828,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         for i in range(num_rd_ports):
                             s.rd_addr_cfg_bank0[i] <<= s.recv_cfg_from_ctrl.msg.in_regs[i]
                             s.rd_addr_valcfg_bank0[i] <<= s.recv_cfg_from_ctrl.msg.in_regs_val[i]
+                            s.reduce_rd_en_bank0[i] <<= s.recv_cfg_from_ctrl.msg.reduce_rd_en[i]
+                            s.reduce_rd_addr_bank0[i] <<= s.recv_cfg_from_ctrl.msg.reduce_rd_addr[i]
                             s.tid_enabled_bank0[i] <<= s.recv_cfg_from_ctrl.msg.in_tid_enable[i]
                             s.rd_pred_addr_cfg_bank0[i] <<= s.recv_cfg_from_ctrl.msg.in_pred_regs[i]
                             s.rd_pred_en_bank0[i] <<= s.recv_cfg_from_ctrl.msg.in_pred_en[i]
@@ -967,6 +872,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         for i in range(num_rd_ports):
                             s.rd_addr_cfg_bank1[i] <<= s.recv_cfg_from_ctrl.msg.in_regs[i]
                             s.rd_addr_valcfg_bank1[i] <<= s.recv_cfg_from_ctrl.msg.in_regs_val[i]
+                            s.reduce_rd_en_bank1[i] <<= s.recv_cfg_from_ctrl.msg.reduce_rd_en[i]
+                            s.reduce_rd_addr_bank1[i] <<= s.recv_cfg_from_ctrl.msg.reduce_rd_addr[i]
                             s.tid_enabled_bank1[i] <<= s.recv_cfg_from_ctrl.msg.in_tid_enable[i]
                             s.rd_pred_addr_cfg_bank1[i] <<= s.recv_cfg_from_ctrl.msg.in_pred_regs[i]
                             s.rd_pred_en_bank1[i] <<= s.recv_cfg_from_ctrl.msg.in_pred_en[i]
@@ -1063,6 +970,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                 s.rd_count_n[i] @= s.rd_count[i]
                 s.rd_addr_valcfg_n[i] @= s.rd_addr_valcfg[i]
                 s.rd_addr_cfg_n[i] @= s.rd_addr_cfg[i]
+                s.reduce_rd_en_n[i] @= s.reduce_rd_en[i]
+                s.reduce_rd_addr_n[i] @= s.reduce_rd_addr[i]
                 s.tid_enabled_n[i] @= s.tid_enabled[i]
                 s.rd_pred_addr_cfg_n[i] @= s.rd_pred_addr_cfg[i]
                 s.rd_pred_en_n[i] @= s.rd_pred_en[i]
@@ -1082,6 +991,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                 s.wr_count_n[i] @= s.wr_count[i]
                 s.wr_addr_valcfg_n[i] @= s.wr_addr_valcfg[i]
                 s.wr_addr_cfg_n[i] @= s.wr_addr_cfg[i]
+                s.reduce_en_n[i] @= s.reduce_en[i]
+                s.reduce_addr_n[i] @= s.reduce_addr[i]
             s.expected_count_n @= s.expected_count
             for i in range(num_ld_ports):
                 s.ld_seq_count_n[i] @= s.ld_seq_count[i]
@@ -1103,6 +1014,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         s.rd_count_n[i] @= MaxThreadType(0)
                         s.rd_addr_valcfg_n[i] @= s.recv_cfg_from_ctrl.msg.in_regs_val[i]
                         s.rd_addr_cfg_n[i] @= s.recv_cfg_from_ctrl.msg.in_regs[i]
+                        s.reduce_rd_en_n[i] @= s.recv_cfg_from_ctrl.msg.reduce_rd_en[i]
+                        s.reduce_rd_addr_n[i] @= s.recv_cfg_from_ctrl.msg.reduce_rd_addr[i]
                         s.tid_enabled_n[i] @= s.recv_cfg_from_ctrl.msg.in_tid_enable[i] & s.recv_cfg_from_ctrl.msg.in_regs_val[i]
                         s.rd_pred_addr_cfg_n[i] @= s.recv_cfg_from_ctrl.msg.in_pred_regs[i]
                         s.rd_pred_en_n[i] @= s.recv_cfg_from_ctrl.msg.in_pred_en[i]
@@ -1120,6 +1033,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         s.wr_count_n[i] @= MaxThreadType(0)
                         s.wr_addr_valcfg_n[i] @= s.recv_cfg_from_ctrl.msg.out_regs_val[i] & has_wr_route
                         s.wr_addr_cfg_n[i] @= s.recv_cfg_from_ctrl.msg.out_regs[i]
+                        s.reduce_en_n[i] @= s.recv_cfg_from_ctrl.msg.reduce_en[i]
+                        s.reduce_addr_n[i] @= s.recv_cfg_from_ctrl.msg.reduce_addr[i]
                     for i in range(num_ld_ports):
                         s.ld_seq_count_n[i] @= MaxThreadType(0)
                         s.ld_issued_mask_n[i] @= MaskType(0)
@@ -1195,6 +1110,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                 for i in range(num_rd_ports):
                     s.rd_addr_cfg[i]    <<= RegAddrType(0)
                     s.rd_addr_valcfg[i] <<= Bits1(0)
+                    s.reduce_rd_en[i]   <<= Bits1(0)
+                    s.reduce_rd_addr[i] <<= ReduceAddrType(0)
                     s.tid_enabled[i]    <<= Bits1(0)
                     s.rd_pred_addr_cfg[i] <<= PredAddrType(0)
                     s.rd_pred_en[i] <<= Bits1(0)
@@ -1209,8 +1126,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                     s.wr_addr_valcfg[i] <<= Bits1(0)
                     s.pred_wr_valcfg[i] <<= Bits1(0)
                     s.pred_wr_addr_cfg[i] <<= PredAddrType(0)
-                    s.reduce_en[i] <<= Bits1(0)
-                    s.reduce_addr[i] <<= ReduceAddrType(0)
+                    s.reduce_en[i]      <<= Bits1(0)
+                    s.reduce_addr[i]    <<= ReduceAddrType(0)
                     s.wr_count[i]       <<= MaxThreadType(0)
                 for i in range(num_tiles):
                     s.pred_tile_valid_active[i] <<= Bits1(0)
@@ -1254,6 +1171,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         for i in range(num_rd_ports):
                             s.rd_addr_cfg[i] <<= s.rd_addr_cfg_bank0[i]
                             s.rd_addr_valcfg[i] <<= s.rd_addr_valcfg_bank0[i]
+                            s.reduce_rd_en[i] <<= s.reduce_rd_en_bank0[i]
+                            s.reduce_rd_addr[i] <<= s.reduce_rd_addr_bank0[i]
                             s.tid_enabled[i] <<= s.tid_enabled_bank0[i] & s.rd_addr_valcfg_bank0[i]
                             s.rd_pred_addr_cfg[i] <<= s.rd_pred_addr_cfg_bank0[i]
                             s.rd_pred_en[i] <<= s.rd_pred_en_bank0[i]
@@ -1267,9 +1186,9 @@ class STEP_RegisterFileControllerRTL( Component ):
                             s.wr_addr_cfg[i] <<= s.wr_addr_cfg_bank0[i]
                             s.wr_addr_valcfg[i] <<= s.wr_addr_valcfg_bank0[i]
                             s.pred_wr_valcfg[i] <<= s.pred_wr_valcfg_bank0[i]
+                            s.pred_wr_addr_cfg[i] <<= s.pred_wr_addr_cfg_bank0[i]
                             s.reduce_en[i] <<= s.reduce_en_bank0[i]
                             s.reduce_addr[i] <<= s.reduce_addr_bank0[i]
-                            s.pred_wr_addr_cfg[i] <<= s.pred_wr_addr_cfg_bank0[i]
                             s.wr_count[i] <<= MaxThreadType(0)
                         for i in range(num_tiles):
                             s.pred_tile_valid_active[i] <<= s.pred_tile_valid_bank0[i]
@@ -1296,6 +1215,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         for i in range(num_rd_ports):
                             s.rd_addr_cfg[i] <<= s.rd_addr_cfg_bank1[i]
                             s.rd_addr_valcfg[i] <<= s.rd_addr_valcfg_bank1[i]
+                            s.reduce_rd_en[i] <<= s.reduce_rd_en_bank1[i]
+                            s.reduce_rd_addr[i] <<= s.reduce_rd_addr_bank1[i]
                             s.tid_enabled[i] <<= s.tid_enabled_bank1[i] & s.rd_addr_valcfg_bank1[i]
                             s.rd_pred_addr_cfg[i] <<= s.rd_pred_addr_cfg_bank1[i]
                             s.rd_pred_en[i] <<= s.rd_pred_en_bank1[i]
@@ -1309,9 +1230,9 @@ class STEP_RegisterFileControllerRTL( Component ):
                             s.wr_addr_cfg[i] <<= s.wr_addr_cfg_bank1[i]
                             s.wr_addr_valcfg[i] <<= s.wr_addr_valcfg_bank1[i]
                             s.pred_wr_valcfg[i] <<= s.pred_wr_valcfg_bank1[i]
+                            s.pred_wr_addr_cfg[i] <<= s.pred_wr_addr_cfg_bank1[i]
                             s.reduce_en[i] <<= s.reduce_en_bank1[i]
                             s.reduce_addr[i] <<= s.reduce_addr_bank1[i]
-                            s.pred_wr_addr_cfg[i] <<= s.pred_wr_addr_cfg_bank1[i]
                             s.wr_count[i] <<= MaxThreadType(0)
                         for i in range(num_tiles):
                             s.pred_tile_valid_active[i] <<= s.pred_tile_valid_bank1[i]
@@ -1341,6 +1262,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         s.rd_count[i] <<= s.rd_count_n[i]
                         s.rd_addr_cfg[i] <<= s.rd_addr_cfg_n[i]
                         s.rd_addr_valcfg[i] <<= s.rd_addr_valcfg_n[i]
+                        s.reduce_rd_en[i] <<= s.reduce_rd_en_n[i]
+                        s.reduce_rd_addr[i] <<= s.reduce_rd_addr_n[i]
                         s.tid_enabled[i] <<= s.tid_enabled_n[i]
                         s.rd_pred_addr_cfg[i] <<= s.rd_pred_addr_cfg_n[i]
                         s.rd_pred_en[i] <<= s.rd_pred_en_n[i]
@@ -1357,6 +1280,8 @@ class STEP_RegisterFileControllerRTL( Component ):
                         s.wr_count[i] <<= s.wr_count_n[i]
                         s.wr_addr_cfg[i] <<= s.wr_addr_cfg_n[i]
                         s.wr_addr_valcfg[i] <<= s.wr_addr_valcfg_n[i]
+                        s.reduce_en[i] <<= s.reduce_en_n[i]
+                        s.reduce_addr[i] <<= s.reduce_addr_n[i]
                         if s.recv_cfg_from_ctrl.val & s.recv_cfg_from_ctrl.rdy & (s.cfg_active_sel_w == s.cfg_load_sel_w) & (s.state == ST_IDLE):
                             mapped_idx = i
                             if i < 4:
@@ -1367,8 +1292,6 @@ class STEP_RegisterFileControllerRTL( Component ):
                                 has_pred_route = has_pred_route | s.recv_cfg_from_ctrl.msg.tokenizer_cfg.token_route_sink_enable[r][route_bit_idx]
                             s.pred_wr_valcfg[i] <<= s.recv_cfg_from_ctrl.msg.out_pred_regs_val[i] & has_pred_route
                             s.pred_wr_addr_cfg[i] <<= s.recv_cfg_from_ctrl.msg.out_pred_regs[i]
-                            s.reduce_en[i] <<= s.recv_cfg_from_ctrl.msg.reduce_en[i]
-                            s.reduce_addr[i] <<= s.recv_cfg_from_ctrl.msg.reduce_addr[i]
                     for i in range(num_ld_ports):
                         s.ld_seq_count[i] <<= s.ld_seq_count_n[i]
                         s.ld_issued_mask[i] <<= s.ld_issued_mask_n[i]
@@ -1400,7 +1323,7 @@ class STEP_RegisterFileControllerRTL( Component ):
                             any_data_write = any_data_write | s.recv_cfg_from_ctrl.msg.out_regs_val[j]
                             any_pred_write = any_pred_write | s.recv_cfg_from_ctrl.msg.out_pred_regs_val[j]
                         for j in range(num_rd_ports):
-                            any_input_read = any_input_read | s.recv_cfg_from_ctrl.msg.in_regs_val[j] | s.recv_cfg_from_ctrl.msg.in_pred_en[j]
+                            any_input_read = any_input_read | s.recv_cfg_from_ctrl.msg.in_regs_val[j] | s.recv_cfg_from_ctrl.msg.in_pred_en[j] | s.recv_cfg_from_ctrl.msg.reduce_rd_en[j]
                         s.active_const_store <<= cfg_is_const_store & any_store & ~any_load & ~any_data_write & ~any_pred_write & ~any_input_read
                         for i in range(num_tiles):
                             s.pred_tile_valid_active[i] <<= s.recv_cfg_from_ctrl.msg.pred_tile_valid[i]
@@ -1689,32 +1612,35 @@ class STEP_RegisterFileControllerRTL( Component ):
         # -------------------------------------------------------------------------
         # Wire the fabric reduction unit
         # -------------------------------------------------------------------------
-        s.reduce_cfg_start = Wire(Bits1)
-
-        @update
-        def comb_reduce_cfg_start():
-            # Same two triggers comb_pred_rf_next() above uses to reset the
-            # predicate-register accumulators for a new config.
-            s.reduce_cfg_start @= Bits1(
-                (s.recv_cfg_from_ctrl.val & s.recv_cfg_from_ctrl.rdy
-                 & (s.cfg_active_sel_w == s.cfg_load_sel_w) & (s.state == ST_IDLE))
-                | s.cfg_swap_w
-            )
-
         for i in range(num_wr_ports):
-            s.fabric_reduce_unit.recv_data[i]  //= s.wr_data[i]
-            s.fabric_reduce_unit.recv_valid[i] //= s.wr_commit_valid[i]
-            s.fabric_reduce_unit.recv_tid[i]   //= s.wr_commit_tid[i]
+            s.fabric_reduce_unit.recv_data[i]    //= s.wr_data[i]
+            s.fabric_reduce_unit.recv_valid[i]   //= s.wr_commit_valid[i]
+            s.fabric_reduce_unit.recv_pred[i]    //= s.recv_pred_port[i]
+            s.fabric_reduce_unit.commit_count[i] //= s.wr_count[i]
             s.fabric_reduce_unit.cfg_reduce_en[i]   //= s.reduce_en[i]
             s.fabric_reduce_unit.cfg_reduce_addr[i] //= s.reduce_addr[i]
-
         s.fabric_reduce_unit.cfg_reduce_op //= s.reduce_op
-        s.fabric_reduce_unit.cfg_expected_count //= s.expected_count
-        s.fabric_reduce_unit.cfg_start //= s.reduce_cfg_start
 
-        for r in range(num_reduce_registers):
-            s.reduce_rd_data[r]  //= s.fabric_reduce_unit.rd_data[r]
-            s.reduce_complete[r] //= s.fabric_reduce_unit.reduce_complete[r]
+        for r in range(NUM_REDUCE_REGISTERS):
+            s.reduce_rd_data[r] //= s.fabric_reduce_unit.rd_data[r]
+
+        @update
+        def comb_reduce_complete():
+            # For entry r, find the (at most one, by config invariant --
+            # see STEP_FabricReduceUnitRTL.py docstring) wr_port targeting
+            # it and check it has seen all expected_count contributions.
+            # s.wr_count[i] only resets on the NEXT config (see
+            # comb_wr_tracking / cfg_bank_ff / seq_ff), so this is high
+            # continuously from completion until the config swaps -- no
+            # separate sticky/reset signal needed.
+            for r in range(NUM_REDUCE_REGISTERS):
+                complete = Bits1(0)
+                for i in range(num_wr_ports):
+                    if s.reduce_en[i] & (s.reduce_addr[i] == ReduceAddrType(r)):
+                        complete = Bits1(
+                            (s.wr_count[i] == s.expected_count) & (s.expected_count > MaxThreadType(0))
+                        )
+                s.reduce_complete[r] @= complete
 
     def line_trace(s):
         state = int(s.state) if hasattr(s, "state") else 0
