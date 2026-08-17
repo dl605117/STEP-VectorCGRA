@@ -8,6 +8,12 @@ data into exactly one entry of this unit's local register file, instead
 of (or in addition to) writing each thread's result into a separate
 main-register-file entry.
 
+The selected op (cfg_reduce_op) gates everything, including the "first
+sample" overwrite. Its reset/default value selects neither
+OPT_VEC_REDUCE_ADD nor OPT_VEC_REDUCE_MUL, so with no op explicitly
+selected this unit performs no action at all -- registers are left
+untouched, never implicitly overwritten.
+
 Design invariant (enforced by configuration, not by this hardware): in
 any given config, at most one wr_port targets a given local register
 address. This unit does not attempt to merge contributions from two
@@ -21,7 +27,7 @@ does not need its own reset/start pulse.
 Author : AI-assisted
 """
 from pymtl3 import *
-from ..lib.opt_type import OPT_VEC_REDUCE_MUL
+from ..lib.opt_type import OPT_VEC_REDUCE_ADD, OPT_VEC_REDUCE_MUL
 from ..lib.util.common import MAX_THREAD_COUNT, NUM_REDUCE_REGISTERS
 
 
@@ -82,13 +88,21 @@ class STEP_FabricReduceUnitRTL( Component ):
           for i in range( num_wr_ports ):
             if s.cfg_reduce_en[i] & s.recv_valid[i] & s.recv_pred[i] & \
                ( s.cfg_reduce_addr[i] == ReduceAddrType( r ) ):
-              if s.commit_count[i] == MaxThreadType( 0 ):
-                s.reduce_regfile[r] <<= s.recv_data[i]
+              # The op itself gates everything, including the "first
+              # sample" overwrite: with no valid op selected (the reset/
+              # default value of cfg_reduce_op, i.e. neither ADD nor
+              # MUL), this port performs no action at all this cycle --
+              # the register is left untouched, not overwritten.
+              if s.cfg_reduce_op == OPT_VEC_REDUCE_ADD:
+                if s.commit_count[i] == MaxThreadType( 0 ):
+                  s.reduce_regfile[r] <<= s.recv_data[i]
+                else:
+                  s.reduce_regfile[r] <<= s.reduce_regfile[r] + s.recv_data[i]
               elif s.cfg_reduce_op == OPT_VEC_REDUCE_MUL:
-                s.reduce_regfile[r] <<= s.reduce_regfile[r] * s.recv_data[i]
-              else:
-                # Default / OPT_VEC_REDUCE_ADD.
-                s.reduce_regfile[r] <<= s.reduce_regfile[r] + s.recv_data[i]
+                if s.commit_count[i] == MaxThreadType( 0 ):
+                  s.reduce_regfile[r] <<= s.recv_data[i]
+                else:
+                  s.reduce_regfile[r] <<= s.reduce_regfile[r] * s.recv_data[i]
 
   def line_trace( s ):
     return "reduce(" + "|".join(

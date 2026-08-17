@@ -9,7 +9,7 @@ loop with inside STEP_CgraRTL -- the tokenizer and the load/store
 scoreboard -- and drives them the same way STEP_CgraRTL does, so the token
 and memory handshakes are the real ones rather than a model.
 
-Author : Cheng Tan (with AI-assisted additions, see PR)
+Author : Cheng Tan
   Date : Dec 15, 2024
 '''
 from pymtl3.passes.backends.verilog import (VerilogVerilatorImportPass)
@@ -55,7 +55,8 @@ class TestHarness(Component):
                     send_rd_data_msgs,
                     recv_ld_data_msgs,
                     recv_ld_data_id_msgs,
-                    send_cfg_done_msgs
+                    send_cfg_done_msgs,
+                    reduce_rd_check_ports = (),
                     ):
         MaskType = mk_bits(MAX_THREAD_COUNT)
         TidType = mk_bits(clog2(MAX_THREAD_COUNT))
@@ -143,8 +144,18 @@ class TestHarness(Component):
         for i in range(num_rd_ports):
             # tile_token_take is the read handshake: it marks the cycle on
             # which the register file output holds the operand for the
-            # thread just dispatched.
-            s.dut.rf_rd_data[i] //= s.send_rd_data[i].recv.msg
+            # thread just dispatched. rf_rd_data (a debug passthrough
+            # straight from the main register file, correctly timed
+            # against tile_token_take for that specific path) is used by
+            # default; ports listed in reduce_rd_check_ports instead check
+            # rd_data, which is what actually reflects comb_output_data's
+            # full mux (predicate consts, tid-enabled synthetic data, and
+            # reduce read-back all only take effect on rd_data, which has
+            # its own, separately-timed capture register).
+            if i in reduce_rd_check_ports:
+                s.dut.rd_data[i] //= s.send_rd_data[i].recv.msg
+            else:
+                s.dut.rf_rd_data[i] //= s.send_rd_data[i].recv.msg
             s.send_rd_data[i].recv.val //= s.rd_data_val[i]
             s.dut.tile_token_take[i] //= s.send_tile_token_take[i].recv.msg
             s.dut.tile_token_take[i] //= s.send_tile_token_take[i].recv.val

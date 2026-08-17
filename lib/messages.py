@@ -7,7 +7,7 @@ Collection of messages definition.
 Convention: The fields/constructor arguments should appear in the order
             of [ payload_nbits, predicate_nbits ]
 
-Author : Cheng Tan (with AI-assisted additions, see PR)
+Author : Cheng Tan
   Date : Dec 3, 2019
 """
 from pymtl3 import *

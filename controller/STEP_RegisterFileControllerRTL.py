@@ -810,7 +810,7 @@ class STEP_RegisterFileControllerRTL( Component ):
                     for i in range(num_ld_ports):
                         any_load = any_load | s.recv_cfg_from_ctrl.msg.ld_enable[i]
                     for i in range(num_wr_ports):
-                        any_data_write = any_data_write | s.recv_cfg_from_ctrl.msg.out_regs_val[i]
+                        any_data_write = any_data_write | s.recv_cfg_from_ctrl.msg.out_regs_val[i] | s.recv_cfg_from_ctrl.msg.reduce_en[i]
                         any_pred_write = any_pred_write | s.recv_cfg_from_ctrl.msg.out_pred_regs_val[i]
                     for i in range(num_rd_ports):
                         any_input_read = any_input_read | s.recv_cfg_from_ctrl.msg.in_regs_val[i] | s.recv_cfg_from_ctrl.msg.in_pred_en[i] | s.recv_cfg_from_ctrl.msg.reduce_rd_en[i]
@@ -1320,7 +1320,7 @@ class STEP_RegisterFileControllerRTL( Component ):
                         for j in range(num_ld_ports):
                             any_load = any_load | s.recv_cfg_from_ctrl.msg.ld_enable[j]
                         for j in range(num_wr_ports):
-                            any_data_write = any_data_write | s.recv_cfg_from_ctrl.msg.out_regs_val[j]
+                            any_data_write = any_data_write | s.recv_cfg_from_ctrl.msg.out_regs_val[j] | s.recv_cfg_from_ctrl.msg.reduce_en[j]
                             any_pred_write = any_pred_write | s.recv_cfg_from_ctrl.msg.out_pred_regs_val[j]
                         for j in range(num_rd_ports):
                             any_input_read = any_input_read | s.recv_cfg_from_ctrl.msg.in_regs_val[j] | s.recv_cfg_from_ctrl.msg.in_pred_en[j] | s.recv_cfg_from_ctrl.msg.reduce_rd_en[j]

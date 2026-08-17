@@ -125,9 +125,24 @@ def test_holds_when_no_valid_commit():
     print("test_holds_when_no_valid_commit PASSED")
 
 
+def test_no_op_performs_no_action():
+    # Per Darren's 2026-08-11 review: the default (reset) value of
+    # cfg_reduce_op selects neither ADD nor MUL, and in that state this
+    # unit must perform NO action -- not even the "first sample"
+    # overwrite -- even if reduce_en/valid/predicate all say go.
+    dut, RegDataType = mk_dut(num_wr_ports=2)
+    dut.cfg_reduce_en[0] @= b1(1)
+    # cfg_reduce_op left at its default (0) -- neither ADD nor MUL.
+    commit(dut, RegDataType, 0, 42, count=0, pred=1, addr=6)
+    assert int(dut.rd_data[6]) == 0, \
+        f"no-op should leave the register untouched, got {int(dut.rd_data[6])}"
+    print("test_no_op_performs_no_action PASSED, rd_data[6] =", int(dut.rd_data[6]))
+
+
 if __name__ == "__main__":
     test_add_reduce()
     test_mul_reduce()
     test_predicate_false_is_skipped()
     test_two_ports_independent_addresses()
     test_holds_when_no_valid_commit()
+    test_no_op_performs_no_action()
