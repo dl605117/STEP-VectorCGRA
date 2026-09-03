@@ -79,4 +79,66 @@ interface step_rf_ctrl_if (input logic clk, input logic reset);
   endclocking
 
 
+  // SVA
+
+  // Config Valid/Ready Handshake Stability
+  // When cfg_val is asserted without cfg_rdy, cfg_val and cfg_data must hold stable.
+  property p_cfg_val_stability;
+    @(posedge clk) disable iff (reset)
+    (recv_cfg_val && !recv_cfg_rdy) |=> (recv_cfg_val && $stable(recv_cfg_data));
+  endproperty
+
+  assert_cfg_val_stability: assert property (p_cfg_val_stability)
+    else `uvm_error("SVA_HANDSHAKE", "recv_cfg_val/recv_cfg_data changed before handshake completion")
+
+
+  // No X/Z on Handshake Signals
+  property p_no_x_on_cfg_val;
+    @(posedge clk) disable iff (reset)
+    recv_cfg_val |-> !$isunknown(recv_cfg_data);
+  endproperty
+
+  assert_no_x_on_cfg_val: assert property (p_no_x_on_cfg_val)
+    else `uvm_error("SVA_DATA_INTEGRITY", "recv_cfg_data contains X or Z during active handshake")
+
+
+  // Tokenizer Sink Bounds Check
+  // Ensure that every sink target driven in configuration does not exceed NUM_TAKER_PORTS.
+  property p_tokenizer_sink_bounds;
+    @(posedge clk) disable iff (reset)
+    (recv_tok_cfg_val && recv_tok_cfg_rdy) |-> 
+      (recv_tok_cfg_data[3:0] < step_rf_ctrl_pkg::NUM_TAKER_PORTS);
+  endproperty
+
+  assert_tokenizer_sink_bounds: assert property (p_tokenizer_sink_bounds)
+    else `uvm_error("SVA_BOUNDS", "Tokenizer config targeted an invalid sink_id >= NUM_TAKER_PORTS")
+
+
+  // Tokenizer Delay Bounds Check
+  // Ensure programmed delay does not exceed MAX_DELAY buffer capacity.
+  property p_tokenizer_delay_bounds;
+    @(posedge clk) disable iff (reset)
+    (recv_tok_cfg_val && recv_tok_cfg_rdy) |-> 
+      (recv_tok_cfg_data[7:4] <= step_rf_ctrl_pkg::MAX_DELAY);
+  endproperty
+
+  assert_tokenizer_delay_bounds: assert property (p_tokenizer_delay_bounds)
+    else `uvm_error("SVA_BOUNDS", "Tokenizer delay exceeds hardware MAX_DELAY")
+
+
+  // Read/Write Port Range Assertions
+  generate
+    for (genvar i = 0; i < step_rf_ctrl_pkg::NUM_RD_PORTS; i++) begin : gen_rd_port_sva
+      property p_rd_val_stability;
+        @(posedge clk) disable iff (reset)
+        (tile_token_take_val[i] && !tile_token_take_rdy[i]) |=> 
+          tile_token_take_val[i];
+      endproperty
+      
+      assert_rd_val_stability: assert property (p_rd_val_stability)
+        else `uvm_error("SVA_HANDSHAKE", $sformatf("Read port %0d dropped valid before ready", i))
+    end
+  endgenerate
+
+
 endinterface : step_rf_ctrl_if

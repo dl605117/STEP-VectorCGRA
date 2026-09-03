@@ -7,6 +7,7 @@ package step_rf_ctrl_pkg;
   import uvm_pkg::*;
   `include "uvm_macros.svh"
 
+  // Arch Parameters
   localparam int NUM_TILE_ROWS = 4;
   localparam int NUM_TILE_COLS = 4;
   localparam int NUM_TILES = 16;
@@ -35,6 +36,7 @@ package step_rf_ctrl_pkg;
   localparam int CfgTokenizerType_WIDTH = 64;
 
 
+  // Shared Enums
   typedef enum logic [2:0] {
     CMD_IDLE = 3'd0,
     CMD_CONFIG = 3'd1,
@@ -42,6 +44,20 @@ package step_rf_ctrl_pkg;
   } cmd_type_e;
 
 
+  // Packed Bit-Structs
+  typedef struct packed {
+    logic [3:0] sink_id;                  // Target taker/returner port index (0 to 15)
+    logic [3:0] delay_cycles;             // Programmed delay before release (0 to 15)
+  } tokenizer_sink_entry_t;
+
+  typedef struct packed {
+    logic [1:0] num_active_sinks;         // Valid entries count (0 to 3)
+    tokenizer_sink_entry_t [3:0] sinks;   // Up to 4 target sinks (32 bits)
+    logic [1:0] reserved;                 // Alignment/padding
+  } step_compressed_tokenizer_cfg_t;
+
+
+  // Inclusion Files
   `include "step_tokenizer_cfg_item.sv"
   `include "step_rf_cfg_metadata_item.sv"
   `include "step_rf_data_item.sv"
